@@ -31,6 +31,30 @@ In Cool, identifier bindings are introduced by a lot of mechanisms:
 \end{itemize}
 Not all identifiers in Cool follow the most closely nested rule. For example, class definitions in Cool cannot be nested, and they are globally visible throughout the program, which means that a class can be used before it is defined. Also, attribute names are globally visible within the class in which they are defined. What's more, method names have some complex rules, such as they can be defined in a parent class, and they can be overridden.
 \section{Symbol tables}
+Much of semantic analysis can be expressed as a recursive descent of an AST. In each step we do the following 3 things:
+\begin{itemize}
+\item Before: Begin processing an AST node n (preprocessing)
+\item Recurse: Process the children of n
+\item After: Finish processing node n (postprocessing)
+\end{itemize}
+When performing semantic analysis on a portion of the AST, we need to know which identifiers are defined. If we divide the processing of the expression {\sf let x:T $\leftarrow e_0$ in $e_1$} into the 3 phases listed above, the preprocessing phase will add definition of x to the current definitions and override any previous definition of x, while the postprocessing phase will remove definition of x and restore the old definition of x. A {\bf symbol table} is the data structure used to track the current bindings of identifiers. 
+
+To implement a simple symbol table, we can use just a stack. It contains three operations:
+\begin{itemize}
+\item add\_symbol(x): push symbol x and its associated info on the stack. 
+\item find\_symbol(x): search the stack from the top. Returns the first x found or NULL.
+\item remove\_symbol(): pop the stack.
+\end{itemize}
+This simple implementation works for {\sf let} expression because in {\sf let} expressions, declarations are perfectly nested, and symbols are added to the symbol table one at a time. In other cases, the functionality of this implementation is not sufficient, e.g. in the definition of a method in which more than one symbols can be introduced each time. We need an implemenation that covers the following operations:
+\begin{itemize}
+\item enter\_scope(): start a new nested scope
+\item find\_symbol(x): find current x (or NULL)
+\item add\_symbol(x): add a symbol x to the table
+\item check\_scope(x): true if x is defined in the current scope
+\item exit\_scope(): exit current scope
+\end{itemize}
+
+Class names should be specially considered here because classes can be used before they are defined. Thus they cannot be checked using a symbol table, neither in one single pass. The solution is to complete two passes: gather all class names in the first one, and do the checking in the second one. In general, semantic analysis requires multiple passes. In the implementation of semantic analysis, a few simple passes is superior to one complex pass.
 \section{Type checking}
 \subsection{Types}
 ``What is a type'' is a question worthy of asking because type is a notion varying from language to language. The consensus is that a type is a set of values and a set of operations on these values. In OO languages, classes are one instantiation of the modern notion of type, but types do not need to be associated with classes. 
@@ -175,10 +199,36 @@ For some cases involving \textsf{SELF\_TYPE}, we need to know the class in which
 \item The current class C.
 \end{itemize}
 The whole environment must be added to all rules, although in most cases M and C are passed down but not actually used. For example, the rule for add of int is now
-\begin{equation*}
+\begin{equation}\label{intaddrule}
 \mathsf{\frac{O,M,C\vdash e_1:Int\quad O,M,C\vdash e_2:Int}{O,M,C\vdash e_1+e_2:Int}}
-\end{equation*}
+\end{equation}
 \subsection{Implementation}
+Cool type checking can be implemented in a single travesal over the AST. The type environment is passed down the tree from parent to child, while types are passed up the tree from child to parent.
+
+The implementation of a rule is somewhat self-explaining. The addition rule for int \eqref{intaddrule} could be implemented with the following persudo-code.
+\begin{lstlisting}
+TypeCheck(Environment, e1 + e2) {
+	T1 = TypeCheck(Environment, e1);
+	T2 = TypeCheck(Environment, e2);
+	Check T1 == T2 == Int; // report error if false
+	return Int;
+}
+\end{lstlisting}
+The rule of {\sf let} expression 
+\begin{gather*}
+\mathsf{O,M,C\vdash e_0:T_0}\\
+\mathsf{O[T/x],M,C\vdash e_1:T_1}\\
+\mathsf{\frac{T_0\leq T}{ O,M,C\vdash let\:x:T\leftarrow e_0\:in\:e_1:T_1}}
+\end{gather*}
+can be implemented as 
+\begin{lstlisting}[mathescape = true]
+TypeCheck(Environment, let x:T $\leftarrow$ e0 in e1) {
+	TypeCheck(Environment, e0) = T0;
+	TypeCheck(Environment, e1) = T1;
+	Check subtype(T0, T); // report error if false
+	return T1;
+}
+\end{lstlisting}
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
