@@ -1,0 +1,184 @@
+\ifx\PREAMBLE\undefined
+\input{preamble}
+\begin{document}
+\fi
+\chapter{Semantic Analysis}
+The lexer detects illegal tokens inside the input, while the parser detects ill-formed parse trees inside the input. Semantic analysis is the last ``front end'' phase of the compiler to catch errors. It is necessary because there are errors that cannot be caught by the parser and lexer, and some language constructs are not context free. 
+
+As a typical statically type checked object oriented language, Cool language requires its semantic analyser doing the following checks:
+\begin{itemize}
+\item All identifiers are declared
+\item Type checking (major function)
+\item Inheritance relationships
+\item Classes are defined only once
+\item Methods in a class are defined only once
+\item Reserved identifiers are not misused
+\end{itemize} 
+This is not an exhaustive list.
+\section{Scope}
+There can be more than one defintion of an identifier before it is used. In order to match the correct declaration of an identifier with its uses, we need to understand the conception of scope. 
+
+The {\bf scope} of an identifier is the portion of a program in which that identifier is accessible. The same identifier may refer to different things in different parts of the same program. In such case, different scopes of the same identifier should not overlap. Programming languages can have either {\bf static scope} or {\bf dynamic scope}. Today most languages, including Cool, have static scope, which means scopes of identifiers depend only on the program text, not the runtime behaviors. There are languages that are dynamically scoped, like SNOBOL and ancient Lisp, for which scopes depend on the execution process of the program. Generally speaking, static scoped language follows {\bf the most closely nested rule}, meaning that the variable binds to the definition that is the most closely enclosing it. Dynamically scoped language follows {\bf the most recent binding rule}, meaning that the variable binds to the most recent definition during the execution.
+
+In Cool, identifier bindings are introduced by a lot of mechanisms:
+\begin{itemize}
+\item class definitions (class names)
+\item method definitions (method names)
+\item let expressions (object ids)
+\item formal parameters (object ids)
+\item attribute definitions (object ids)
+\item case expressions(object ids)
+\end{itemize}
+Not all identifiers in Cool follow the most closely nested rule. For example, class definitions in Cool cannot be nested, and they are globally visible throughout the program, which means that a class can be used before it is defined. Also, attribute names are globally visible within the class in which they are defined. What's more, method names have some complex rules, such as they can be defined in a parent class, and they can be overridden.
+\section{Symbol tables}
+\section{Type checking}
+\subsection{Types}
+``What is a type'' is a question worthy of asking because type is a notion varying from language to language. The consensus is that a type is a set of values and a set of operations on these values. In OO languages, classes are one instantiation of the modern notion of type, but types do not need to be associated with classes. 
+
+{\bf The goal of type checking is to ensure that operations are used only with the correct types. }It is nonsensical to add a function pointer to an integer in C, but at assembly language level they share the same implementation. Type checking is intended to avoid such errors.
+
+There are 3 kinds of languages: 
+\begin{description}
+\item[Statically typed]Almost or all type checking is done as part of compilation. e.g. C, java, cool.
+\item[Dynamically typed]Almost all type checking is done at run time. e.g. Python, Lisp, Perl.
+\item[Untyped]No type checking. e.g. machine code.
+\end{description}
+There have always been debates on the merits of static typing v.s. dynamic typing. Static typing proponents assert that static checking catches many errors at compile time, and it avoids overhead of runtime type checks. Dynamic typing proponents argue that static type systems are too restrictive, and it causes difficulty when it comes to rapid prototyping. In the end, we end up with compromises on both sides: static typed languages often provide an ``escape'' mechanism, e.g. casting in C-like languages; dynamic typed languages are often retrofitted for optimisation and debugging with static typing. 
+
+Types in Cool include class names and SELF\_TYPE. User is supposed to declare types for identifiers, and the compiler will do the rest of the job: a type will be inferred for every expression. 
+\subsection{Logical inference rules}
+We have seen two formal notations as the specification of parts of a compiler: regular expressions and context free grammars. Logical inference rules are the appropriate formalism for type checking. 
+
+Inference rules have the form
+\begin{center}
+If Hypothesis is true, the Conclusion is true. 
+\end{center}
+In the specific case of type checking rules, they often have the form
+\begin{center}
+If $E_1$ and $E_2$ have certain types, then $E_3$ has a certain type. 
+\end{center}
+In order to simplify the notation, we use $\land$ to denote ``and'', $\Rightarrow$ to denote ``if-then'', and x:T to denote ``x has type T''. Thus, the rule ``if $e_1$ has type Int, $e_2$ has type Int, then $e_1+e_2$ has type Int'' is denoted as 
+\begin{equation*}
+\mathsf{(e_1:Int\land e_2:Int)\Rightarrow e_1+e_2:Int}
+\end{equation*}
+By convention, inference rules are written in the form
+\begin{equation*}
+\frac{\vdash\text{Hypothesis}_1\dots\vdash\text{Hypothesis}_n}{\vdash\text{Conclusion}}
+\end{equation*}
+in which $\vdash$ is read ``it is provable that''. Here we give some rules as examples.
+
+\begin{gather*}
+\mathsf{\frac{\vdash\text{i is an integer literal}}{\vdash i:Int}}\\
+\mathsf{\frac{\vdash e_1: Int\vdash e_2: Int}{\vdash e_1+e_2:Int}}\\
+\mathsf{\frac{\frac{\text{1 is an int literal}}{\vdash 1:Int}\frac{\text{2 is an int literal}}{\vdash 2:Int}}{\vdash 1+2:Int}}\\
+\mathsf{\frac{}{\vdash false : Bool}}\\
+\mathsf{\frac{}{\vdash new\:T : T}}\\
+\mathsf{\frac{\vdash e:Bool}{\vdash!e:Bool}}\\
+\mathsf{\frac{\vdash e_1:Bool\vdash e_2: T}{\vdash while\:e_1\:loop\:e_2\:pool:Object}}
+\end{gather*}
+A type system is sound if whenever $\vdash$e:T, e evaluates to a value of type T. We only want sound rules, but some sound rules are better than others. For example, $\mathsf{\frac{\vdash i:Int}{\vdash i:Object}}$ is sound but not helpful at all.
+
+Type check proves facts in the form of e:T. The proof is on the structure of the AST. It actually has the shape of the AST, because one type rule is used for each AST node. In the rule used for an AST node e, Hypotheses are the proofs of the types of e's subexpressions, while the conclusion is the type of e. Types are computed in a bottom-up pass over the AST.
+\subsection{Type environment}
+For a variable, the local structural rule does not carry enough information to give it a type. 
+\begin{equation*}
+\mathsf{\frac{\text{x is a variable}}{\vdash x : ?}}
+\end{equation*}
+More information should be put into the rules in such case. A {\bf type environment} gives types to {\bf free} variables. A variable is free if it is not defined within the expression. A type environment is a function from object identifiers to types. It is implemented by the symbol table.
+
+Let O be a function from ObjectIdentifiers to Types, the sentence O$\vdash$e : T is read: under the assumption that free variables in expression e have the type given by O, it is provable that e has type T. The type environment should be added to the earlier rules. For example now we have
+\begin{gather*}
+\mathsf{\frac{\vdash\text{i is an integer literal}}{O\vdash i:Int}}\\
+\mathsf{\frac{O\vdash e_1:Int\quad O\vdash e_2 :Int}{O\vdash e_1+e_2:Int}}\\
+\end{gather*}
+And we can now write some new rules:
+\begin{equation*}
+\mathsf{\frac{O(x) = T}{O\vdash x : T}}
+\end{equation*}
+We use O[T/x] to denote the function that returns T for x, and O(y) for whatever y$\neq$x. We can now define the rule for {\sf let} expression:
+\begin{gather}
+\mathsf{O\vdash e_0: T}\nonumber\\
+\mathsf{\frac{O[T/x]\vdash e_1:T_1}{O\vdash let\:x:T\leftarrow e_0\:in\:e_1:T}_1}\label{oldlet}
+\end{gather}
+The type environment is passed down the AST from the root to the leaves, while types are computed up the AST from the leaves to the root.
+\subsection{Subtyping} 
+The rule \eqref{oldlet} is not satisfactory in practice because It is not necessary that x:T. {\sf x} can actually be of any subtype of T.  In order to allow the use of subtypes, we introduce the $\leq$ relationship between classes. Its formal definition is 
+\begin{itemize}
+\item $X\leq X$
+\item $X\leq Y$ if X inherits from Y
+\item $X\leq Z$ if $X\leq Y$ and $Y\leq Z$
+\end{itemize}
+With $\leq$ relationship added, rule \eqref{oldlet} can be written as 
+\begin{gather*}
+\mathsf{O\vdash e_0:T_0}\\
+\mathsf{O[T/x]\vdash e_1:T_1}\\
+\mathsf{\frac{T_0\leq T}{ O\vdash let\:x:T\leftarrow e_0\:in\:e_1:T_1}}
+\end{gather*}
+Similarly, the rule of assignment can be written as
+\begin{gather*}
+\mathsf{O(x) = T_0}\\
+\mathsf{O\vdash e_1:T_1}\\
+\mathsf{\frac{T_1\leq T_0}{ O\vdash x\leftarrow e_1:T_1}}
+\end{gather*}
+Attribute initialization inside a class also uses subtyping. O$_C$(x) = T means for all attributes x of class C we have x : T.
+\begin{gather*}
+\mathsf{O_C(x)=T_0}\\
+\mathsf{O_C\vdash e_1:T_1}\\
+\mathsf{\frac{T_1\leq T_0}{ O_C\vdash x:T_0\leftarrow e_1:T_0}}
+\end{gather*}
+Consider the case of the \textsf{if} expression. The type of {\sf if $e_0$ then $e_1$ else $e_2$ fi} can be either the type of $e_1$ or that of $e_2$, depending on whether the else clause or the then clause is executed at rumtime. In this case, the best we can do is to use the smallest super type larger than both the types of $e_1$ and $e_2$, i.e. \textbf{their least upper bound}, which is denoted by {\sf Z = lub(X, Y)}. Its formal definition is 
+\begin{itemize}
+\item $X\leq Z\land Y\leq Z$
+\item if $X\leq Z'\land Y\leq Z', Z\leq Z'$
+\end{itemize}
+In Cool, the least upper bound of two types is their least common ancestor in the inheritance tree. Equipped with the definition of lub(X,Y), we can write the rule of the if expression:
+\begin{gather*}
+\mathsf{O\vdash e_0: Bool}\\
+\mathsf{O\vdash e_1: T_1}\\
+\mathsf{\frac{O\vdash e_2:T_2}{ O\vdash if\:e_0\:then\:e_1\:else\:e_2\:fi:lub(T_1, T_2)}}
+\end{gather*}
+The rule of case expression takes a similar but more complex form:
+\begin{gather*}
+\mathsf{O\vdash e_0:T_0}\\
+\mathsf{O[T_1/x_1]\vdash e_1:T_1'}\\
+\dots\\
+\mathsf{\frac{O[T_n/x_n]\vdash e_n:T_n'}{O\vdash case\:e_0\:of\:x_1:T_1\rightarrow e_1;\:\dots;\: x_n:T_n\rightarrow e_n: lub(T_1',\dots,T_n')}}
+\end{gather*}
+\subsection{Typing methods}
+In order to check the type of a method call, we need a mechanism similar to type environment O for variables. In Cool, method type rules are put in namespace M differnt from O, which means that a method and an object can share the same name. A rule 
+\begin{equation*}
+\mathsf{M(C,f) = (T_1,\dots,T_n,T_{n+1})}
+\end{equation*}
+means that in class C, there is a method f with signature $f(x_1:T_1,\dots,x_n:T_n):T_{n+1}$. Now we can write the rule of normal dispatch:
+\begin{gather*}
+\mathsf{O,M\vdash e_0:T_0}\\
+\mathsf{O,M\vdash e_1:T_1}\\
+\dots\\
+\mathsf{O,M\vdash e_n:T_n}\\
+\mathsf{M(T_0,f) = (T_1',\dots,T_n', T_{n+1})}\\
+\mathsf{\frac{T_i\leq T_i'\:for\:1\leq i \leq n}{O,M\vdash e_0.f(e_1,\dots,e_n):T_{n+1}}}
+\end{gather*}
+Similarly, the rule of static dispatch is 
+\begin{gather*}
+\mathsf{O,M\vdash e_0:T_0}\\
+\mathsf{O,M\vdash e_1:T_1}\\
+\dots\\
+\mathsf{O,M\vdash e_n:T_n}\\
+\mathsf{M(T,f) = (T_1',\dots,T_n',T_{n+1})}\\
+\mathsf{T_0\leq T}\\
+\mathsf{\frac{T_i\leq T_i'\quad for\quad1\leq i \leq n}{O,M\vdash e_0@T.f(e_1,\dots,e_n): T_{n+1}}}
+\end{gather*}
+For some cases involving \textsf{SELF\_TYPE}, we need to know the class in which an expression appears. Thus the full type environment of Cool contains 3 parts:
+\begin{itemize}
+\item A mapping O giving types to object identifiers.
+\item A mapping M giving types to methods.
+\item The current class C.
+\end{itemize}
+The whole environment must be added to all rules, although in most cases M and C are passed down but not actually used. For example, the rule for add of int is now
+\begin{equation*}
+\mathsf{\frac{O,M,C\vdash e_1:Int\quad O,M,C\vdash e_2:Int}{O,M,C\vdash e_1+e_2:Int}}
+\end{equation*}
+\subsection{Implementation}
+\ifx\PREAMBLE\undefined
+\end{document}
+\fi
