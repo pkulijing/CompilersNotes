@@ -168,7 +168,7 @@ The rule of case expression takes a similar but more complex form:
 \dots\\
 \mathsf{\frac{O[T_n/x_n]\vdash e_n:T_n'}{O\vdash case\:e_0\:of\:x_1:T_1\rightarrow e_1;\:\dots;\: x_n:T_n\rightarrow e_n: lub(T_1',\dots,T_n')}}
 \end{gather*}
-\subsection{Typing methods}
+\subsection{Methods type environment}
 In order to check the type of a method call, we need a mechanism similar to type environment O for variables. In Cool, method type rules are put in namespace M differnt from O, which means that a method and an object can share the same name. A rule 
 \begin{equation*}
 \mathsf{M(C,f) = (T_1,\dots,T_n,T_{n+1})}
@@ -229,6 +229,140 @@ TypeCheck(Environment, let x:T $\leftarrow$ e0 in e1) {
 	return T1;
 }
 \end{lstlisting}
+\subsection{Static v.s. dynamic typing}
+Static type checking systems detect common errors at compile time. Unfortunately, some correct programs from the perspective of rumtime are disallowed by the type checker. In order to tackle this problem, some argue for dynamic type checking instead, while others want more expressive, but meantime more complex static type checking. 
+
+One of the ideas this discussion suggests is that there are two different notions of type: the dynamic type and the static type. Dynamic type is a runtime notion. The dynamic type of an object C is the class C used in the \textsf{new C} expression that created it. Static type is a compile notion. It captures all dynamic types the expression can have. For simple type systems, we have the soundness theorem, which asserts that for all expression E, dynamic\_type(E) = static\_type(E). However, for complex type systems like that of Cool, this is not always true. For example, if class A inherits class B, then \textsf{new A} can be assigned to a variable b that has static type B. The soundness theorem of Cool should be dynamic\_type(E) $\leq$ static\_type(E), $\forall$E, which implies that subclasses can only add attributes or methods. Methods can be overriden in subclasses, but their types should be observed.
+\section{Self type}
+\subsection{Introduction}
+As an example of ``more expressive static typing'', we will discuss the type rule of self in Cool.
+
+Consider the following class:
+\begin{lstlisting}[mathescape = true]
+class Count {
+	i : int $\leftarrow$ 0;
+	inc() : Count {{ i $\leftarrow$ i + 1; self; }};
+};
+\end{lstlisting}
+This class incorporates a counter and thus can serve as a base class for any class that needs this funtionality. Consider one of such classes, the Stock class:
+\begin{lstlisting}[mathescape = true]
+class Stock inherits Count {
+	name : String;
+};
+class Main {
+	main() : Object {
+		Stock a $\leftarrow$ (new Stock).inc();
+		a.name = ...
+	};
+};
+\end{lstlisting}
+
+If the Cool type checker that we have developed is employed on this piece of code, it will actually complain about a type mismatch error: a is expecting a value of type Stock, but (new Stock).inc() has static type Count as declared in class Count. In order to use the funtionality of the counter, all subclasses of Count have to do the tedious job of redefining inc(). 
+
+An extension of the current type system provides an elegant solution to the problem. Instead of specifying the return type of inc() as Count or any other subclass of Count, we require that inc() should return the type of self, which could be implemented by introducing a new keyword SELF\_TYPE:
+\begin{equation*}
+\mathsf{inc() : SELF\_TYPE \{\dots\}}
+\end{equation*}
+This mechanism allows the return type of inc() changing according to the dynamic type of the object calling it. The type checker can now prove
+\begin{equation*}
+\begin{split}
+&\mathsf{O,M,C\vdash(new Count).inc() : Count}\\
+&\mathsf{O,M,C\vdash(new Stock).int() : Stock}\\
+\end{split}
+\end{equation*}
+\subsection{Self type operations}
+In order to make the mechanism of SELF\_TYPE work, we need to fully incorporate it into the current type system. We have defined two operations on types: the subtype relationship ($\mathsf{T_1\leq T_2}$) and the least upper bound (lub($\mathsf{(T_1,T_2)}$)). They are extended to handle SELF\_TYPE as follows.
+
+For subtype relationship: 
+\begin{itemize}
+\item SELF\_TYPE$_C\leq$SELF\_TYPE$_C$ (we never have to compare SELF\_TYPE from different classes)
+\item SELF\_TYPE$_C\leq$T if C$\leq$T (which implies SELF\_TYPE$_C\leq$C)
+\item T$\leq$SELF\_TYPE$_C$ always false
+\end{itemize} 
+
+For least upper bound:
+\begin{itemize}
+\item lub(SELF\_TYPE$_C$, SELF\_TYPE$_C$) = SELF\_TYPE$_C$
+\item lub(SELF\_TYPE$_C$, T) = lub(C, T)
+\item lub(T, SELF\_TYPE$_C$) = lub(C, T)
+\end{itemize}
+\subsection{Self type usage}
+SELF\_TYPE is not allowed everywhere a type can appear. Its usage is restricted by the following rules.
+\begin{enumerate}
+\item In an inheritance chain \textsf{class T inherits T'}, neither T nor T' can be SELF\_TYPE.
+\item In an attribute declaration \textsf{x:T}, T can be SELF\_TYPE.
+\item In a let expression \textsf{let x:T in E}, T can be SELF\_TYPE.
+\item In \textsf{new T}, T can be SELF\_TYPE. It creates an object of the same dynamic type as self.
+\item In a static dispatch $\mathsf{m@T(E_1\dots E_n)}$, T cannot be SELF\_TYPE.
+\item In a method definition \textsf{m(x:T):T'}\{...\}, only T' can be SELF\_TYPE. T cannot be SELF\_TYPE because that would result in a $\mathsf{T_0\leq SELF\_TYPE}$ requirement in a dispatch, which is never true. Furthermore, take the following example.
+\begin{lstlisting}[mathescape = true]
+class A { comp(x : SELF_TYPE) : Bool {...}; };
+class B inherits A {
+	b : int;
+	comp(x : SELF_TYPE) { x.b <- 0 };
+}
+...
+let x : A $\leftarrow$ new B in x.comp(new A);
+...
+\end{lstlisting}
+Here x and new A both have static type A, thus there is no problem during type checking. But at runtime, since x has dynamic type B, it will try to access attribute b of new A when executing comp(), which causes undefined behavior, usually a crash. 
+\end{enumerate}
+\subsection{Self type checking}
+A type checking rule $\mathsf{O,M,C\vdash e:T}$ means that an expression e occurring in the body of class C has type T given the variable type environment O and method signatures M. Most type rules using SELF\_TYPE remain just the same, except that the $\leq$ and \textsf{lub} are the new ones. There are some rules that need to be updated. 
+
+The old rule for dispatch requires that the return type is not SELF\_TYPE:
+\begin{gather*}
+\mathsf{O,M,C\vdash e_0:T_0}\\
+\mathsf{O,M,C\vdash e_1:T_1}\\
+\dots\\
+\mathsf{O,M,C\vdash e_n:T_n}\\
+\mathsf{M(T_0,f) = (T_1',\dots,T_n', T_{n+1})}\\
+\mathsf{T_{n+1}\neq SELF\_TYPE}\\
+\mathsf{\frac{T_i\leq T_i'\:for\:1\leq i \leq n}{O,M\vdash e_0.f(e_1,\dots,e_n):T_{n+1}}}
+\end{gather*}
+In case the return type is SELF\_TYPE:
+\begin{gather*}
+\mathsf{O,M,C\vdash e_0:T_0}\\
+\mathsf{O,M,C\vdash e_1:T_1}\\
+\dots\\
+\mathsf{O,M,C\vdash e_n:T_n}\\
+\mathsf{M(T_0,f) = (T_1',\dots,T_n', SELF\_TYPE)}\\
+\mathsf{\frac{T_i\leq T_i'\:for\:1\leq i \leq n}{O,M\vdash e_0.f(e_1,\dots,e_n):T_0}}
+\end{gather*}
+Similarly for static dispatch:
+\begin{gather*}
+\mathsf{O,M,C\vdash e_0:T_0}\\
+\mathsf{O,M,C\vdash e_1:T_1}\\
+\dots\\
+\mathsf{O,M,C\vdash e_n:T_n}\\
+\mathsf{M(T,f) = (T_1',\dots,T_n',T_{n+1})}\\
+\mathsf{T_0\leq T}\\
+\mathsf{T_{n+1}\neq SELF\_TYPE}\\
+\mathsf{\frac{T_i\leq T_i'\quad for\quad1\leq i \leq n}{O,M,C\vdash e_0@T.f(e_1,\dots,e_n): T_{n+1}}}
+\end{gather*}
+the rule becomes
+\begin{gather*}
+\mathsf{O,M,C\vdash e_0:T_0}\\
+\mathsf{O,M,C\vdash e_1:T_1}\\
+\dots\\
+\mathsf{O,M,C\vdash e_n:T_n}\\
+\mathsf{M(T,f) = (T_1',\dots,T_n',SELF\_TYPE)}\\
+\mathsf{T_0\leq T}\\
+\mathsf{\frac{T_i\leq T_i'\quad for\quad1\leq i \leq n}{O,M,C\vdash e_0@T.f(e_1,\dots,e_n): T_0}}
+\end{gather*}
+Note that we are returning type $\mathsf{T_0}$ rather than C, because the type of self (i.e. $\mathsf{T_0}$) can be a subtype of the type in which method f is defined (i.e. C).
+
+There are two new rules due to the introduction of SELF\_TYPE:
+\begin{gather*}
+\mathsf{\frac{}{O,M,C\vdash self : SELF\_TYPE_C}}\\
+\mathsf{\frac{}{O,M,C\vdash new SELF\_TYPE : SELF\_TYPE_C}}\\
+\end{gather*}
+\subsection{Error recovery}
+Detecting where errors occur during type checking is easier that during parsing because there is no need to skip over portions of code. 
+
+The main problem is what type should be given to an expression with no legitimate type. This type will influence the typing of the enclosing expression. One choice is to assign type Object to ill-typed expressions. But usually this does not help much because Object does not conform to most of the type rules, thus the error will propagate up the AST, eventually escalating to a series of type errors.
+
+A better approach is to introduce a new type \textsf{No\_type} for use with ill-typed expressions. It has the property that \textsf{No\_type$\leq$C} for any type C. As a result, every operation is defined for \textsf{No\_type}. \textsf{No\_type} will be propagated up the AST just like Object in the previous approach, but the cascading errors disappear. Nonetheless, \textsf{No\_type} makes the class hierarchy no longer a tree structure. It actually becomes a DAG, which causes implementation difficulty.
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
