@@ -1,4 +1,4 @@
- \input{preamble}
+\input{preamble}
 \def\PREAMBLE{PREAMBLE}
 \begin{document}
 \pagestyle{empty}
@@ -8,10 +8,11 @@
 \hypersetup{pageanchor=true}
 \pagenumbering{arabic}
 \pagestyle{headings}
-
+\addtocontents{toc}{\protect\thispagestyle{empty}}
 \input{Introduction}
 \input{LexicalAnalysis}
 \input{Parsing}
 \input{SemanticAnalysis}
 \input{RuntimeOrganization}
+\input{CodeGeneration}
 \end{document}
