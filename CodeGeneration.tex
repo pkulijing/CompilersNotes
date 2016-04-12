@@ -62,7 +62,7 @@ acc $\leftarrow$ acc + top\_of\_stack & lw \$t1 4(\$sp) \\
 pop & addiu \$sp \$sp 4
 \end{tabular}
 \end{table}
-\section{Code generation}
+\section{Code generation for a simple language}
 In this section we will take a look at code generation for higher level languages rather than a simple stack machine in the previous section.
 
 Condiser a language for integer operations. Its grammar depicts a list of function definitions:
@@ -160,7 +160,17 @@ Code for function calls and function definitions depends on the layout of the ac
 \item We need the return address.
 \item A pointer to the \textbf{current} activation is useful. It lives in register \$fp (frame pointer).
 \end{itemize}
-To summarize, an AR will contain the caller's frame pointer, the actual parameters and the return address. Consider a call to $f(x,y)$. The AR is 
+To summarize, for this simple language, an AR will contain the caller's frame pointer, the actual parameters and the return address. The caller's frame pointer should be contained because \$fp will be probably overwritten during the execution of the function (by other functions called during the execution). Consider a call to $f(x,y)$. Before its body gets executed, its AR looks like Figure \ref{aroff}.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{aroff.jpg}
+\caption{AR of f(x,y)}\label{aroff}
+\end{figure}
+The \textbf{calling sequence} is the instructions (of both the caller and the callee) to set up a function invocation. Here we introduce a new instruction
+\begin{description}
+\item[jal label] Jump to label, and save the address of the next instruction in \$ra (meaning return address). \textbf{jal} means jump and link.
+\end{description}
+Now we can actually generate the code for function call expressions. 
 \begin{equation*}\begin{split}
 \textsf{\color{red}cgen}&\textsf{\color{red}(f(e1,e2,...,en)) }=\\
 &\textsf{sw \$fp 0(\$sp)}\\
@@ -174,7 +184,13 @@ To summarize, an AR will contain the caller's frame pointer, the actual paramete
 &\textsf{addiu \$sp \$sp -4}\\
 &\textsf{jal f\_entry}
 \end{split}\end{equation*}
+For \textsf{f(e1,e2,...,en)}, we first save the frame pointer of the caller, then save the arguments one by one (from \textsf{en} to \textsf{e1}). Up to now we've completed the calling sequence on the caller side. Next we can use \textsf{jal} to jump to the entry point of function \textsf{f}. The return address is now in \$ra. The AR so far is \textsf{4*n+4} bytes long.  
 
+We introduce another instruction
+\begin{description}
+\item[jr reg]Jump to the address in register reg.
+\end{description}
+Now we can discuss the callee side of the calling sequence. 
 \begin{equation*}\begin{split}
 \textsf{\color{red}cgen}&\textsf{\color{red}(def f(x1,x2,...,xn) = e) }=\\
 &\textsf{f\_entry:}\\
@@ -187,10 +203,62 @@ To summarize, an AR will contain the caller's frame pointer, the actual paramete
 &\quad\textsf{lw \$fp 0(\$sp)}\\
 &\quad\textsf{jr \$ra}\\
 \end{split}\end{equation*}
+First we set up the frame pointer by saving the current stack pointer into \$fp. Then the return address is saved in memory. Now we can generate code for the function body. The stack pointer will be reserved, thus we can load the return address back into \$ra. Next we can pop the return address, all arguments and the old fp out of the stack (totally 4*n+8 bytes). We restore the value of the old fp, and finally jump back to the return address. 
+
+Variables in this language are just the function arguments. They are all pushed into the AR by the caller. But since the stack grows when intermediate results are saved, the variables are not at fixed offsets from \$sp. That's when \$fp should be used. The offset of \textsf{xi} from \$fp is 4*i. Thus we can generate the code for variable reference. 
 \begin{equation*}
 \textsf{\color{red}cgen(xi)}\textsf{ = lw \$a0 4*i(\$fp)}
 \end{equation*}
+\subsection{Summary}
+To summarize, the AR must be designed together with the code generator. Code generation can be completed by a recursive traversal of the AST. Such an approach using a stack machine is a wise choice to implement the COOL code generator. 
 
+Production compilers are for sure different from the example here. They emphasize keeping values in registers, especially the current stack frame, for the code to run faster. Also, intermediate results are laid out in the AR rather than pushed and popped from the stack. 
+\subsection{Example}
+In this section we will generate code for the following example program:
+\begin{lstlisting}
+def sumto(x) = if x = 0 then 0 else x + sumto(x - 1)
+\end{lstlisting}
+\begin{align*}
+&\textsf{sumto\_entry:}&&\\
+&\quad\textsf{move \$fp \$sp}&//&\text{set up frame pointer}\\
+&\quad\textsf{sw \$ra \$sp}&//&\text{return address}\\
+&\quad\textsf{addiu \$sp \$sp -4}&&\\
+&\quad\textsf{lw \$a0 4(\$fp)}&//&\text{start generation for if-then-else. load x from AR.}\\
+&\quad\textsf{sw \$a0 0(\$sp)}&//&\text{save value of x (1st arg of comparison)}\\
+&\quad\textsf{addiu \$sp \$sp -4}&&\\
+&\quad\textsf{li \$a0 0}&//&\text{immediately load 0}\\
+&\quad\textsf{lw \$t1 4(\$sp)}&//&\text{load x (1st arg of comparison) into \$t1}\\
+&\quad\textsf{addiu \$sp \$sp 4}&//&\text{pop x}\\
+&\quad\textsf{beq \$t1 \$a0 true1}&//&\text{compare and branch}\\
+&\textsf{false1:}&&\\
+&\quad\textsf{lw \$a0 4(\$fp)}&//&\text{load x from AR}\\
+&\quad\textsf{sw \$a0 0(\$sp)}&//&\text{save value of x (1st arg of addition)}\\
+&\quad\textsf{addiu \$sp \$sp -4}&&\\
+&\quad\textsf{sw \$fp 0(\$sp)}&//&\text{save frame pointer of caller}\\
+&\quad\textsf{addiu \$sp \$sp -4}&&\\
+&\quad\textsf{lw \$a0 4(\$fp)}&//&\text{load x from AR}\\
+&\quad\textsf{sw \$a0 0(\$sp)}&//&\text{save value of x (1st arg of subtraction)}\\
+&\quad\textsf{addiu \$sp \$sp -4}&&\\
+&\quad\textsf{li \$a0 1}&//&\text{immediately load 1}\\
+&\quad\textsf{lw \$t1 4(\$sp)}&//&\text{load x (1st arg of subtraction into \$t1)}\\
+&\quad\textsf{sub \$a0 \$t1 \$a0}&//&\text{subtraction}\\
+&\quad\textsf{addiu \$sp \$sp 4}&//&\text{pop x}\\
+&\quad\textsf{sw \$a0 0(\$sp)}&//&\text{save value of x-1 (arg of sumto(x-1))}\\
+&\quad\textsf{addiu \$sp \$sp -4}\\
+&\quad\textsf{jal sumto\_entry}&//&\text{jump and link}\\
+&\quad\textsf{lw \$t1 4(\$sp)}&//&\text{load x (1st arf of addition) into \$t1}\\
+&\quad\textsf{add \$a0 \$t1 \$a0}&//&\text{addition (x+sumto(x-1))}\\
+&\quad\textsf{addiu \$sp \$sp 4}&//&\text{pop x. up to now finished x+sumto(x-1)}\\
+&\quad\textsf{b end\_if1}&&\\
+&\textsf{true1:}&&\\
+&\quad\textsf{li \$a0 0}&//&\text{immediately load 0}\\
+&\textsf{end\_if1}&//&\text{up to now finished if-then-else}\\
+&\quad\textsf{lw \$ra 4(\$sp)}&//&\text{load return address}\\
+&\quad\textsf{addiu \$sp \$sp 12}&//&\text{pop ra, argument(x) and old fp}\\
+&\quad\textsf{lw \$fp 0(\$sp)}&//&\text{restore old fp}\\
+&\quad\textsf{jr \$ra}&&\\
+\end{align*}
+\section{Temporaries}
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
