@@ -41,7 +41,7 @@ at the same time?
 The answer is to choose the {\bf maximal match}: match as long as possible.
 \item Which token should be used if more than one token is matched, i.e. what if $x_1\dots x_i$ simultaneously belongs to $L(R_j)$ and $L(R_k)$? 
 
-A priority rule is set up to prevent such ambigity. Typically, the rule is to {\bf choose the one listed first}. For example, {\sf if} should not be recognized as identifier because it belongs to the language of keyword.
+A priority rule is set up to prevent such ambiguity. Typically, the rule is to {\bf choose the one listed first}. For example, {\sf if} should not be recognized as identifier because it belongs to the language of keyword.
 \item What if no rule matches, i.e. what if $x_1\dots x_i\notin L(R)$? This concerns the error handling of the compiler.
 
 The solution is not to let this happen. We will define one more class, the error class, that matches all strings not in the lexical specification, and put it last in priority.
@@ -57,7 +57,7 @@ A finite automaton consists of
 \item A set of accepting states $F\subseteq S$
 \item A set of transitions $\text{state1}\xrightarrow{\text{input}}\text{state2}$
 \end{itemize}
-Transition $s_1\xrightarrow{a}s_2$ is read ``in state $s_1$ on input $a$ go to state $s_2$''. If the automaton is in accepting state at the end of the input, it will {\bf accept} the string, meaning that the string is in the laguage of this machine. Otherwise it will {\bf reject} the string. This is either because it terminates in state $s\notin F$, or because the machine gets stuck: there is no transition defined for the current state and input.
+Transition $s_1\xrightarrow{a}s_2$ is read ``in state $s_1$ on input $a$ go to state $s_2$''. If the automaton is in accepting state at the end of the input, it will {\bf accept} the string, meaning that the string is in the language of this machine. Otherwise it will {\bf reject} the string. This is either because it terminates in state $s\notin F$, or because the machine gets stuck: there is no transition defined for the current state and input.
 
 The language of a FA is equal to the set of its accepted strings.
 
@@ -65,7 +65,7 @@ It is possible that the machine changes its state without an input, when the tra
 
 A DFA takes only one path through the state graph per input string, while an NFA can choose different paths. As long as some of the paths lead to accepting state, the NFA accept the input string.
 
-DFAs and NFAs recognize the same set of languages, which is the regular languages. DFAs are faster to execute, while NFAs are in general much (exponentially) smaller.
+DFAs and NFAs recognize the same set of languages, which is the set of regular languages. DFAs are faster to execute, while NFAs are in general much (exponentially) smaller.
 \section{Implementation}
 \begin{figure}[ht]
 \centering

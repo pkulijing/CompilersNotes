@@ -10,9 +10,9 @@ Consider two instructions: push i (push integer i on the stack) and add (add two
 \begin{center}
 push 7\\push 5\\add
 \end{center}
-An important property of stack machines is that location of the operands/result is not explicitly stated because they are always at the top of the stack. This is different from register machine in which the locations have to be specified. We have add instead of add $r1, r_2, r_3$, which produces more compact programs. This is one of the reasons why JAVA bytecodes uses stack evaluation.
+An important property of stack machines is that location of the operands/result is not explicitly stated because they are always at the top of the stack. This is different from register machine in which the locations have to be specified. We have \textsf{add} instead of \textsf{add} $\mathsf{r_1, r_2, r_3}$, which produces more compact programs. This is one of the reasons why JAVA bytecodes uses stack evaluation.
 
-Stack machine produces compact programs, but register machine executes faster. There is an intermediate point between the two kinds of machines called a n-register stack machine. As the name reveals, the top n positions of the pure stack machine's stack is held in registers. It turns out the even one single register can provide considerable performance improvement, which is the case of 1-register stack machine. The resgister is called the \textbf{accumulator}. 
+Stack machine produces compact programs, but register machine executes faster. There is an intermediate point between the two kinds of machines called an \textbf{n-register stack machine}. As the name reveals, the top n positions of the pure stack machine's stack are held in registers. It turns out that even one single register can provide considerable performance improvement, which is the case of \textbf{1-register stack machine}. The resgister is called the \textbf{accumulator}. 
 
 In a pure stack machine, an add does 3 memory operations: two reads and one write. But in a 1-register stack machine, what add does is acc$\leftarrow$acc + top\_of\_stack. In general, consider an arbitrary expression $\mathsf{op(e_1,\dots,e_n)}$. For each subexpression $e_i(1\leq i\leq n-1)$, we will compute $e_i$, store the result in acc and then push the result on the stack. For $e_n$, we will have its result remain in acc. Then we will pop n-1 values from the stack to compute op, and store the result in acc. If we follow this procedure, obviously after evaluating an expression e, acc holds the value of e, and the stack is unchanged. In other words, \textbf{expression evaluation preserves the stack.}
 
@@ -31,8 +31,166 @@ pop & 12 & 3,$<$init$>$\\
 acc$\leftarrow$acc + top\_of\_stack & 15 & 3,$<$init$>$\\
 pop & 15 & $<$init$>$
 \end{tabular}
-
 \end{table}
+\section{Basic MIPS instructions}
+In our discussion of code generation, we will focus on generating code for a stack machine with accumulator. The resulting code should be able to run on an MIPS processor (or simulator). Thus we have to simulate stack machine instructions using MIPS instructions and registers.
+
+We choose to keep the accumulator in MIPS register \$a0. The stack is kept in memory and grows towards lower addresses, which is a standard convention in MIPS. The address of the next location on the stack is kept in MIPS register \$sp (which stands for stack pointer), and the top of the stack is at address \$sp + 4.
+
+MIPS is an old structure with a relatively simple instruction set (prototypical reduced instruction set computer, or RISC). Most MIPS operations use registers for operands and results. Load and store instructions are used to move values to and from memory. There are 32 general purpose registers (32 bits each) in MIPS, and we will use only \$a0, \$sp and \$t1 (temp register used for operations that take two arguments). 
+
+Here are the first set of MIPS instructions that we introduce.
+\begin{description}
+\item[lw reg1 offset(reg2)]: Load 32-bit word from address \textsf{reg2 + offset} into \textsf{reg1}. 
+\item[sw reg1 offset(reg2)]: Store 32-bit word in \textsf{reg1} at address \textsf{reg2 + offset}.
+\item[add reg1 reg2 reg3]: \textsf{reg1 $\leftarrow$ reg2 + reg3}
+\item[addiu reg1 reg2 imm]: \textsf{reg1 $\leftarrow$ reg2 + imm. u} means that overflow is not checked.
+\item[li reg imm]: \textsf{reg $\leftarrow$ imm}.
+\item[move reg1 reg2] reg1 $\leftarrow$ reg2.
+\end{description}
+The stack machine code for 7 + 5 is: 
+\begin{table}[H]
+\sf 
+\centering
+\begin{tabular}{ll}
+acc $\leftarrow$ 7  & li \$a0 7 \\
+push acc 			& sw \$a0 0(\$sp)\\
+					& addiu \$sp \$sp -4 \\
+acc $\leftarrow$ 5  & li \$a0 5 \\
+acc $\leftarrow$ acc + top\_of\_stack & lw \$t1 4(\$sp) \\
+									  & add \$a0 \$a0 \$t1 \\
+pop & addiu \$sp \$sp 4
+\end{tabular}
+\end{table}
+\section{Code generation}
+In this section we will take a look at code generation for higher level languages rather than a simple stack machine in the previous section.
+
+Condiser a language for integer operations. Its grammar depicts a list of function definitions:
+\begin{equation*}\begin{split}
+&\textsf{P}\rightarrow\textsf{D; P } | \textsf{ D}\\
+&\textsf{D}\rightarrow\textsf{def id(ARGS) = E};\\
+&\textsf{ARGS}\rightarrow\textsf{id, ARGS }|\textsf{ id}\\
+&\textsf{E}\rightarrow\textsf{int }|\textsf{ id }|\textsf{ if E$_1$ = E$_2$ then E$_3$ else E$_4$ } | \textsf{ E}_1+\textsf{E}_2 | \textsf{ E}_1 - \textsf{E}_2 | \textsf{ id(E$_1,\dots,$E$_n$)}
+\end{split}\end{equation*}
+The first function definition \textsf{f} is the entry point, i.e. the \textsf{main} routine. This language is enough to write a program that computes the Fibonacci numbers:
+\begin{equation*}\begin{split}
+\textsf{def fib(x) = }&\textsf{if x = 1 then 0 else}\\
+&\textsf{if x = 2 then 1 else}\\
+&\textsf{fib(x - 1) + fib(x - 2)}
+\end{split}\end{equation*}
+For each expression \textsf{e}, we want to generate MIPS code that \textbf{computers the value of \textsf{e} in \$a0} and \textbf{preserves \$sp and the content of the stack}. We will define a function \textsf{cgen(e)} whose return value if the code generated for \textsf{e}.
+
+\subsection{Constants}
+For constants, we need to simply load it into the accumulator:
+\begin{center}
+\textsf{\color{red}cgen(i)}\textsf{ = li \$a0 i}
+\end{center}
+\subsection{Addition}
+For addition:
+\begin{equation*}\begin{split}
+\textsf{\color{red}cgen(e1 }&\textsf{\color{red}+ e2) }=\\
+&\textsf{\color{red}cgen(e1)}\\
+&\textsf{sw \$a0 0(\$sp)}\\
+&\textsf{addiu \$sp \$sp -4}\\
+&\textsf{\color{red} cgen(e2)}\\
+&\textsf{lw \$t1 4(\$sp)}\\
+&\textsf{add \$a0 \$t1 \$a0}\\
+&\textsf{addiu \$sp \$sp 4}
+\end{split}\end{equation*}
+Here we use different colors to emphasize the fact that MIPS code is \textbf{generated} at compile time and \textbf{executed} at run time. Code in red color is what happens at compile time: the generation, while code in black is what happens at run time: the execution. More precisely, we should write \textsf{sw \$a0 0(\$sp)} as something like \textsf{{\color{red}print} sw \$a0 0(\$sp)}, which indicates that the MIPS code is generated at compile time and saved somewhere, maybe in an intermediate file, and does not get executed until run time.
+
+It seems that the piece of code above could be optimized: why don't we save the value of e1 directly in \$t1, rather than saving it in the memory and then retrieve it into \$t1? The code will look like:
+\begin{equation*}\begin{split}
+\textsf{\color{red}cgen(e1 }&\textsf{\color{red}+ e2) }=\\
+&\textsf{\color{red}cgen(e1)}\\
+&\textsf{move \$t1 \$a0}\\
+&\textsf{\color{red} cgen(e2)}\\
+&\textsf{add \$a0 \$t1 \$a0}
+\end{split}\end{equation*}
+Unfortunately, this neat piece of code is wrong. We can convince ourselves by simply condisering the code generated for 1 + (2 + 3). In short, the value of \$t1 will be modified during \textsf{cgen(e2)}, and is no longer the value of e1 when the execution comes to \textsf{add \$a0 \$t1 \$a0}.
+
+The simple example of code generation for addition demonstrates a few universal properties of code generation. The code generated for \textsf{e1 + e2} is a template with ``holes'' for code generated to evaluate e1 and e2. Stack machine code generation is actually recursive. The code generation process can be written as a recursive descent of the AST, at least for expressions.
+
+\subsection{Subtration}
+By introducing another MIPS instruction sub:
+\begin{description}
+\item[sub reg1 reg2 reg3] reg1$\leftarrow$reg2 - reg3
+\end{description}
+we can generate the code for \textsf{e1 - e2}:
+\begin{equation*}\begin{split}
+\textsf{\color{red}cgen(e1 }&\textsf{\color{red}- e2) }=\\
+&\textsf{\color{red}cgen(e1)}\\
+&\textsf{sw \$a0 0(\$sp)}\\
+&\textsf{addiu \$sp \$sp -4}\\
+&\textsf{\color{red}cgen(e2)}\\
+&\textsf{lw \$t1 4(\$sp)}\\
+&\textsf{sub \$a0 \$t1 \$a0}\\
+&\textsf{addiu \$sp \$sp 4}
+\end{split}\end{equation*}
+
+\subsection{If-then-else}
+In order to generate code for \textsf{if-then-else} expressions, we need to introduce a couple of new instructions:
+\begin{description}
+\item[beq reg1 reg2 label] branch to label if reg1 = reg2
+\item[b label] Unconditional jump to label
+\end{description}
+\begin{equation*}\begin{split}
+\textsf{\color{red}cgen(if e1 = e2 }&\textsf{\color{red}then e3 else e4) }=\\
+&\textsf{\color{red}cgen(e1)}\\
+&\textsf{sw \$a0 0(\$sp)}\\
+&\textsf{addiu \$sp \$sp -4}\\
+&\textsf{\color{red}cgen(e2)}\\
+&\textsf{lw \$t1 4(\$sp)}\\
+&\textsf{addiu \$sp \$sp 4}\\
+&\textsf{beq \$t1 \$a0 true\_branch}\\
+&\textsf{false\_branch:}\\
+&\textsf{\quad\color{red}cgen(e4)}\\
+&\textsf{\quad b end\_if}\\
+&\textsf{true\_branch:}\\
+&\textsf{\quad\color{red}cgen(e3)}\\
+&\textsf{end\_if:}
+\end{split}\end{equation*}
+
+\subsection{Function calls \& definitions, variable references}
+Code for function calls and function definitions depends on the layout of the activation record, thus they need to be designed together. For this simple language, a very simple AR is sufficient. 
+\begin{itemize}
+\item Since the result is always in the accumulator, there is no need to store the result in AR. 
+\item The AR should hold the actual parameters, thus for $f(x_1,\dots,x_n)$, we need to push $x_n,\dots,x_1$ on the stack. These are the only variables in this language. 
+\item The stack discipline guarantees that \$sp is preserved after a function call. Thus there is no need for a control link: the previous activation can be found directly; and we do not need to look at another activation during the function call because there is no non-local variable. 
+\item We need the return address.
+\item A pointer to the \textbf{current} activation is useful. It lives in register \$fp (frame pointer).
+\end{itemize}
+To summarize, an AR will contain the caller's frame pointer, the actual parameters and the return address. Consider a call to $f(x,y)$. The AR is 
+\begin{equation*}\begin{split}
+\textsf{\color{red}cgen}&\textsf{\color{red}(f(e1,e2,...,en)) }=\\
+&\textsf{sw \$fp 0(\$sp)}\\
+&\textsf{addiu \$sp \$sp -4}\\
+&\textsf{\color{red}cgen(en)}\\
+&\textsf{sw \$a0 0(\$sp)}\\
+&\textsf{addiu \$sp \$sp -4}\\
+&\dots\\
+&\textsf{\color{red}cgen(e1)}\\
+&\textsf{sw \$a0 0(\$sp)}\\
+&\textsf{addiu \$sp \$sp -4}\\
+&\textsf{jal f\_entry}
+\end{split}\end{equation*}
+
+\begin{equation*}\begin{split}
+\textsf{\color{red}cgen}&\textsf{\color{red}(def f(x1,x2,...,xn) = e) }=\\
+&\textsf{f\_entry:}\\
+&\quad\textsf{move \$fp \$sp}\\
+&\quad\textsf{sw \$ra 0(\$sp)}\\
+&\quad\textsf{addiu \$sp \$sp -4}\\
+&\quad\textsf{\color{red}cgen(e)}\\
+&\quad\textsf{lw \$ra 4(\$sp)}\\
+&\quad\textsf{addiu \$sp \$sp 4n + 8}\\
+&\quad\textsf{lw \$fp 0(\$sp)}\\
+&\quad\textsf{jr \$ra}\\
+\end{split}\end{equation*}
+\begin{equation*}
+\textsf{\color{red}cgen(xi)}\textsf{ = lw \$a0 4*i(\$fp)}
+\end{equation*}
+
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi

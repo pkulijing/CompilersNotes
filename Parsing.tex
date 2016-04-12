@@ -137,7 +137,7 @@ Some rules in the illustration of the recursive descent parsing algorithm: TOKEN
 
 Some boolean functions need to be defined to check matches of token terminals and CFG rules. For a given token terminal {\sf tok}, for the nth production of S, and for all productions of S, the functions are respectively 
 \begin{lstlisting}[mathescape]
-bool term(TOKEN tok) { return *next++ = tok; }
+bool term(TOKEN tok) { return *next++ == tok; }
 bool S$_n$() { $\dots$ }
 bool S() { $\dots$ }
 \end{lstlisting}
