@@ -73,11 +73,11 @@ Condiser a language for integer operations. Its grammar depicts a list of functi
 &\textsf{E}\rightarrow\textsf{int }|\textsf{ id }|\textsf{ if E$_1$ = E$_2$ then E$_3$ else E$_4$ } | \textsf{ E}_1+\textsf{E}_2 | \textsf{ E}_1 - \textsf{E}_2 | \textsf{ id(E$_1,\dots,$E$_n$)}
 \end{split}\end{equation*}
 The first function definition \textsf{f} is the entry point, i.e. the \textsf{main} routine. This language is enough to write a program that computes the Fibonacci numbers:
-\begin{equation*}\begin{split}
+\begin{equation}\label{fibonacci}\begin{split}
 \textsf{def fib(x) = }&\textsf{if x = 1 then 0 else}\\
 &\textsf{if x = 2 then 1 else}\\
 &\textsf{fib(x - 1) + fib(x - 2)}
-\end{split}\end{equation*}
+\end{split}\end{equation}
 For each expression \textsf{e}, we want to generate MIPS code that \textbf{computers the value of \textsf{e} in \$a0} and \textbf{preserves \$sp and the content of the stack}. We will define a function \textsf{cgen(e)} whose return value if the code generated for \textsf{e}.
 
 \subsection{Constants}
@@ -259,6 +259,25 @@ def sumto(x) = if x = 0 then 0 else x + sumto(x - 1)
 &\quad\textsf{jr \$ra}&&\\
 \end{align*}
 \section{Temporaries}
+One of the advantages of production compilers over the simple one we introduced is that temporaries are kept in the AR. In order to generate more efficient code, the code generator must assign a fixed location in the AR for each temporary. If we use NT(e) to represent the number of temporaries to evaluate expression e. We will have 
+\begin{align*}
+NT(e_1 + e_2)&=\max(NT(e_1), 1 + NT(e_2))\\
+NT(e_1 - e_2)&=\max(NT(e_1), 1 + NT(e_2))\\
+NT(\text{if }e_1 = e_2\text{ then }e_3\text{ else }e_4)&=\max(NT(e_1), 1 + NT(e_2), NT(e_3), NT(e_4))\\
+NT(id(e_1,\dots,e_n))&=\max(NT(e_1),\dots,NT(e_n))\\
+NT(int)&=0\\
+NT(id)&=0\\
+\end{align*}
+The rule for $id(e_1,\dots,e_n)$ is correct because the temps to store $e_1,\dots,e_{i-1}$ are stored in the new AR, not the current AR. 
+
+Consider the Fibonacci function \eqref{fibonacci}. With the rules above applied, 2 temps are enough to evaluate it.
+
+For a function definition \textsf{def f(x1,...,xn) = e}, the AR has \textsf{2 + n + NT(e)} elements: return address, frame pointer, n arguments and NT(e) locations for intermediate results. The layout of the AR is shown in Figure \ref{arlayout}.
+\begin{figure}[H]
+\centering
+\includegraphics[width = 0.4\textwidth]{arlayout.jpg}
+\caption{Layout of AR}\label{arlayout}
+\end{figure}
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
