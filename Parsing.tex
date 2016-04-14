@@ -47,7 +47,7 @@ A parse tree has terminals at the leaves and non-terminals at the interior nodes
 
 According to the order of the non-terminals being replaced, a derivation can be left-most or right-most, or of a random order, which is rarely used. Both the left-most and the right-most derivation have the same parse tree.
 \subsection{Ambiguity}
-A grammar is {\bf ambiguous} if it has more than one parse tree for some string. Equivantly, there is more than one left-most (right-most) derivation for this string. Ambiguity is a problem we strive to avoid. There are two solutions to the problem: either we directly rewrite the grammar unambiguously, or we enforce precedences on operations (e.g. * over +).
+A grammar is {\bf ambiguous} if it has more than one parse tree for some string. Equivalently, there is more than one left-most (right-most) derivation for this string. Ambiguity is a problem we strive to avoid. There are two solutions to the problem: either we directly rewrite the grammar unambiguously, or we enforce precedences on operations (e.g. * over +).
 
 Here we give an example of rewriting grammar. The grammar
 \begin{equation*}
@@ -70,8 +70,8 @@ Consider the grammar
 |&\text{ OTHER}
 \end{split}
 \end{equation*}
-that decribes an ``if then else'' relation in which ``else'' is optional. It is ambiguous because the expression 
-``if $E_1$ then if $E_2$ then $E_3$ else $E_4$'' has two parse trees because the ``else'' could correspond to both ``then''s. The parse tree of the previous expression could be either ``if $E_1$ then \{if $E_2$ then $E_3$ else $E_4\}$'' or ``if $E_1$ then \{if $E_2$ then $E_3$\} else $E_4$''We want to rewrite the grammar so that every ``else'' matches the cloest ``then''. The new grammar is
+that describes an ``if then else'' relation in which ``else'' is optional. It is ambiguous because the expression 
+``if $E_1$ then if $E_2$ then $E_3$ else $E_4$'' has two parse trees because the ``else'' could correspond to both ``then''s. The parse tree of the previous expression could be either ``if $E_1$ then \{if $E_2$ then $E_3$ else $E_4\}$'' or ``if $E_1$ then \{if $E_2$ then $E_3$\} else $E_4$''We want to rewrite the grammar so that every ``else'' matches the closest ``then''. The new grammar is
 \begin{equation*}
 \begin{split}
 \text{E}\rightarrow &\text{ MIF}\\
@@ -92,7 +92,7 @@ Note that the rewritten grammar no longer generates the same set of expressions 
 \end{equation*}
 to remove the ambiguity. However, 3 * 5 + 2 - 6 / 2 will be parsed as and only as \{\{\{3 * 5\} + 2\} - 6\} / 2, which is against normal precedence and associativity assumptions. In order to make the grammar work correctly in the intended way, simply rewriting the grammar is far from enough. It must be combined with other measures such as precedence and associativity definitions. 
 \section{Error handling}
-Compiler has two major tasks to complete: translating valid programs and detecting invalid ones. Different kinds of errors can be detected by different components of the compiler: lexcial errors by lexer, syntactic errors by parser and semantic errors by type checker. There are also errors that are not within the scope of the programming language, and thus remain to be found by the programmer through tests.
+Compiler has two major tasks to complete: translating valid programs and detecting invalid ones. Different kinds of errors can be detected by different components of the compiler: lexical errors by lexer, syntactic errors by parser and semantic errors by type checker. There are also errors that are not within the scope of the programming language, and thus remain to be found by the programmer through tests.
 
 An error handler within the compiler is expected to 
 \begin{itemize}
@@ -103,13 +103,13 @@ An error handler within the compiler is expected to
 There are three different approaches to implement the error handler: panic mode, error productions and automatic local/global correction. The first two are used in current compilers.
 
 \subsection{Panic mode}
-Panic mode is the simplest and thus the most popular method. When an error is detected, it discards tokens until one with a clear role is found, and resumes the compilation there. The ``clear'' token it looks for is usually the terminator of a statement or a funtion. In Bison (a popular parser generator), a special terminal {\sf error} is used to describe how much input to skip in case of an error. For example,
+Panic mode is the simplest and thus the most popular method. When an error is detected, it discards tokens until one with a clear role is found, and resumes the compilation there. The ``clear'' token it looks for is usually the terminator of a statement or a function. In Bison (a popular parser generator), a special terminal {\sf error} is used to describe how much input to skip in case of an error. For example,
 \begin{equation*}
 \text{E}\rightarrow \text{E} + \text{E} | (\text{E}) | \text{error int}|\text{error}
 \end{equation*}
 specifies that an integer is regarded as a token to resume the compilation when an error occurs.
 \subsection{Error productions}
-Common errors made by programmers can sometimes be predicted. For example, 5 * x is often mistakenly written as 5 x. We can add new productions covering such typos into the grammar so that the compilation can continue, and the programmer receives warnings concerning the errors. This approach has an obvious disadvantage that it compilates the grammar.
+Common errors made by programmers can sometimes be predicted. For example, 5 * x is often mistakenly written as 5 x. We can add new productions covering such typos into the grammar so that the compilation can continue, and the programmer receives warnings concerning the errors. This approach has an obvious disadvantage that it complicates the grammar.
 \subsection{Automatic correction}
 In the early years of programming, compilation is a time-consuming process. Programmers had to spent hours or even a whole day waiting for the compilation result. So compilers were expected to automatically correct probable errors in the program so that the time would not be totally wasted due to small mistakes such as typos, and more errors could be found in a single compilation cycle. This requirement makes it hard to implement a satisfactory compiler, and it also slows down the compilation of correct codes. Nowadays compilation is much more faster, and programmers tend to recompile everytime they fix an error. Thus complex error recovery becomes less compelling than a few decades ago.
 
@@ -168,7 +168,7 @@ To start the parser, {\sf next} needs to be set to the first token, and E() shou
 
 With the statement {\sf *save = next}, the current position is saved in {\sf save}. If the matching for a production succeeds, the matching for the whole non-terminal ends; otherwise {\sf next} is restored with {\sf next = save}, and the string continues to be matched with the next production. The use of the C++ comma operator is interesting.
 \subsubsection{Limitations}
-The recursive descent parsing algoruthm just presented is easy to be implemented by hand, but it is not general. Specificly for this example, consider the matching process for the string {\sf int * int}. We will go from E() to T() then to T$_1$(), which returns true and leaves us with the {\sf * int} segment. This segment cannot be matched, forcing us to wrongly reject the whole string. 
+The recursive descent parsing algorithm just presented is easy to be implemented by hand, but it is not general. Specifically for this example, consider the matching process for the string {\sf int * int}. We will go from E() to T() then to T$_1$(), which returns true and leaves us with the {\sf * int} segment. This segment cannot be matched, forcing us to wrongly reject the whole string. 
 
 The problem is that with this algorithm, we have no way of back tracking and trying other productions once one production has been successfully matched. There exist a more general and yet more complex implementation that solves the problem by allowing ``full back tracking'', which will be covered later.
 \subsubsection{Left recursion}
@@ -309,7 +309,7 @@ If any entry of the parsing table is multiple defined, then the grammar is nor L
 \end{itemize}
 then it is not LL(1). Actually most programming language CFGs are not LL(1). LL(1) grammar is too week to describe all the features required in these languages. 
 \section{Bottom-up parsing}
-Bottom-up parsing is more general than deterministic top-down parsing. Actually it is as efficient, and builds on all the ideas we have discussed in top-down parsing. Bottom-up parsing is the preferable method in reality. Bottom-up parsing does not require left-factored grammer, thus we can revert to the natural grammar \eqref{favgrammar} in the following discussion. Nonetheless, bottom-up parsers do not deal with ambiguous grammars, thus we still have to enforce precedence and associativity rules.
+Bottom-up parsing is more general than deterministic top-down parsing. Actually it is as efficient, and builds on all the ideas we have discussed in top-down parsing. Bottom-up parsing is the preferable method in reality. Bottom-up parsing does not require left-factored grammar, thus we can revert to the natural grammar \eqref{favgrammar} in the following discussion. Nonetheless, bottom-up parsers do not deal with ambiguous grammars, thus we still have to enforce precedence and associativity rules.
 
 Bottom-up parsing reduces a string to the start symbol by inverting productions. As an example, consider the string int * int + int. It can be reduced to the start symbol E via the following path:
 \begin{table}[H]
@@ -330,7 +330,7 @@ Suppose $\alpha\beta\omega$ is a step of a bottom-up parse, and the next reducti
 The left substring in shift-reduce string can be implemented by a stack, with the top of the stack being the $|$ sign. Each shift action pushes a terminal on the stack. Each reduce action pops symbols (rhs of the production rule, terminals and nonterminals) out of the  stack, and pushes a nonterminal on the stack. 
 
 In a given state, more than one action might lead to a valid parse. If it is legal to shift or reduce, there is a \textbf{shift/reduce} conflict. If there are two legal reduces, then there is a \textbf{reduce/reduce} conflict. Reduce/reduce conflicts are always bad, indicating some serious problem of the grammar. Shift/reduce conflicts can usually be removed by precedence definitions.
-\subsection{Handle \& viable predixes}
+\subsection{Handle \& viable prefixes}
 Reducing whenever we meet a rhs of production will probably cause incorrect results. For example, we cannot reduce int * int to T * int after the first shift according to the grammar \eqref{favgrammar}. We should only reduce when its result can still be reduced to the start symbol. A \textbf{handle} is a reduction that also allows further reductions back to the start symbol. For a rightmost derivation $S\xrightarrow{*}\alpha X\omega\rightarrow\alpha\beta\omega$, we say $\alpha\beta$ is a handle of $\alpha\beta\omega$. \textbf{In shift-reduce parsing, handles appear only at the top of the stack (never inside).} Handles are never to the left of the rightmost non-terminal. Thus shift-reduce moves are sufficient, and the $|$ sign never has to move left. Bottom-up parsing algorithms are based on recognizing handles.
 
 \subsubsection{Recognizing handles}
@@ -346,7 +346,7 @@ It is not obvious how to detect handles. We should always keep in mind that at e
 
 {\bf For any grammar, the set of viable prefixes is a regular language.} As a result, the set of viable prefixes can be recognized by a finite automaton. We will shown how to compute the automata that accept viable prefixes.
 
-First we introduce the idea of an \textbf{item}. An item is a production with a $\cdot$\footnote{In the lectures . is used. I use $\cdot$(\LaTeX $\backslash$cdot) to avoid confusion with period.} somewhere in the rhs. For example, the production T$\rightarrow$(E) produces 4 items:  T$\rightarrow\cdot$(E), T$\rightarrow$($\cdot$E), T$\rightarrow$(E$\cdot$) and T$\rightarrow$(E)$\cdot$.For $\epsilon$-productions, the only item for X$\rightarrow\epsilon$ is X$\rightarrow\cdot$. Items are usually called the LR(0) items. They provide a description of intermediate steps of shirt-reduce parsing. Consider the input (int) for grammar \eqref{favgrammar}. (E$|$) is a state of a shift-reduce parse for it. (E is a prefix of the rhs of the production T$\rightarrow$(E), and it is to be reduced if a ) is recognized after the next shift. Item T$\rightarrow$(E$\cdot$) decribes such situation: we have seen (E and hope to see ).
+First we introduce the idea of an \textbf{item}. An item is a production with a $\cdot$\footnote{In the lectures . is used. I use $\cdot$(\LaTeX $\backslash$cdot) to avoid confusion with period.} somewhere in the rhs. For example, the production T$\rightarrow$(E) produces 4 items:  T$\rightarrow\cdot$(E), T$\rightarrow$($\cdot$E), T$\rightarrow$(E$\cdot$) and T$\rightarrow$(E)$\cdot$.For $\epsilon$-productions, the only item for X$\rightarrow\epsilon$ is X$\rightarrow\cdot$. Items are usually called the LR(0) items. They provide a description of intermediate steps of shirt-reduce parsing. Consider the input (int) for grammar \eqref{favgrammar}. (E$|$) is a state of a shift-reduce parse for it. (E is a prefix of the rhs of the production T$\rightarrow$(E), and it is to be reduced if a ) is recognized after the next shift. Item T$\rightarrow$(E$\cdot$) describes such situation: we have seen (E and hope to see ).
 
 The stack contains actually many prefixes of rhses of productions:
 \begin{equation*}
@@ -402,7 +402,7 @@ In this section we will present the {\bf SLR parsing} algorithm. SLR means ``sim
 First we will introduce a weak bottom-up parsing algorithm called LR(0) parsing. Suppose that the stack contains $\alpha$ and the next input is token t. The DFA on input $\alpha$ terminates in state s. Then the rules for shift-reduce actions are:
 \begin{itemize}
 \item Reduce by $X\rightarrow\beta$ if $X\rightarrow\beta\cdot\in s$
-\item Shift if $X\rightarrow\beta\cdot t\omega\in s$. This is equivalent to the fact that s has a trasition labeled t.
+\item Shift if $X\rightarrow\beta\cdot t\omega\in s$. This is equivalent to the fact that s has a transition labeled t.
 \end{itemize}
 LR(0) parsing has a reduce/reduce conflict if any state has two reduce items $X_1\rightarrow\beta_1\cdot$ and $X_2\rightarrow\beta_2\cdot$. It has a shift/reduce conflict if any state has a reduce item $X_1\rightarrow\beta_1\cdot$ and a shift item $X_2\rightarrow\beta_2\cdot t\delta$.
 
@@ -410,7 +410,7 @@ SLR improves on LR(0) shift/reduce heuristics. As a result, fewer shift/reduce c
 \begin{itemize}
 \item Reduce by $X\rightarrow\beta$ if $X\rightarrow\beta\cdot\in s$ and t$\in$Follow(X)
 \end{itemize}
-If any conflict still exists, then the grammar is not an SLR grammar. The handles of SLR grammars can be exactly detected by the heuristics. A lot of grammars are not SLR grammars. We can define define rules to resolve some confilicts for such grammars, which sometimes have the effect of precedence declaration.
+If any conflict still exists, then the grammar is not an SLR grammar. The handles of SLR grammars can be exactly detected by the heuristics. A lot of grammars are not SLR grammars. We can define define rules to resolve some conflicts for such grammars, which sometimes have the effect of precedence declaration.
 
 Now we present the complete SLR parsing algorithm.
 \begin{algorithm}[ht]
@@ -433,7 +433,7 @@ Now we present the complete SLR parsing algorithm.
 
 See video 8-6 for an exhaustive example of applying the algorithm.
 
-Algorithm \eqref{slrpar1} can be improved because rerunning the viable predixes automaton is wasteful: reduce or shift will only change a few symbols on the top of the stack, while the rest of the stack stays the same, and the work on them is just a repeat. If the repeat can be avoided, the algorithm can run much more quickly. 
+Algorithm \eqref{slrpar1} can be improved because rerunning the viable prefixes automaton is wasteful: reduce or shift will only change a few symbols on the top of the stack, while the rest of the stack stays the same, and the work on them is just a repeat. If the repeat can be avoided, the algorithm can run much more quickly. 
 
 The state of the automaton on each prefix can be remembered. It will be more convenient to make the stack store $<$Symbol, DFA state$>$ pairs rather than just symbols. We will have a stack 
 $$<\text{sym}_1,\text{state}_1>\dots<\text{sym}_n,\text{state}_n>,$$
@@ -446,13 +446,13 @@ in which state$_n$ is the final state of the DFA on sym$_1\dots$sym$_n$. The bot
 \end{itemize}
 We will define two parsing tables.
 \begin{itemize}
-\item Define \textsf{goto[i,A] = j} if state$_i\xrightarrow{A}$state$_j$. \textsf{goto} is just the transition function of the DFA.
-\item Define \textsf{action[i,a]} for each DFA state $s_i$ and the next input terminal a.
+\item Define \texttt{goto[i,A] = j} if state$_i\xrightarrow{A}$state$_j$. \texttt{goto} is just the transition function of the DFA.
+\item Define \texttt{action[i,a]} for each DFA state $s_i$ and the next input terminal a.
 \begin{itemize}
-\item If $s_i$ contains item $X\rightarrow\alpha\cdot a\beta$ and \textsf{goto[i,a] = j} then \textsf{action[i,a] = shift j}.
-\item If $s_i$ contains item $X\rightarrow\alpha\cdot$ and a$\in$Follow(X) and X$\neq$S' then \textsf{action[i,a] = reduce $X\rightarrow\alpha\cdot$}.
-\item If $s_i$ contains item S'$\rightarrow$S, then \textsf{action[i,\$] = accept}.
-\item Otherwise \textsf{action[i,a] = error}.
+\item If $s_i$ contains item $X\rightarrow\alpha\cdot a\beta$ and \texttt{goto[i,a] = j} then \texttt{action[i,a] = shift j}.
+\item If $s_i$ contains item $X\rightarrow\alpha\cdot$ and a$\in$Follow(X) and X$\neq$S' then \texttt{action[i,a] = reduce $X\rightarrow\alpha\cdot$}.
+\item If $s_i$ contains item S'$\rightarrow$S, then \texttt{action[i,\$] = accept}.
+\item Otherwise \texttt{action[i,a] = error}.
 \end{itemize}\end{itemize}
 The improved algorithm is shown in Algorithm \eqref{slrpar2}.
 \begin{algorithm}[ht]

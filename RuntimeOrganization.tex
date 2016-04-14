@@ -46,14 +46,14 @@ The compiler must determine \textbf{at compile time} the layout of activation re
 \section{Globals and heap}
 All references to a global variable point to the same object, thus they cannot be be stored in an activation record which is deallocated after an activation is completed. Globals are assigned a fixed address once, and we call these variables ``statically allocated'' because they are allocated during compile time. Depending on the language, there may be other statically allocated values.
 
-Besides globals, a value that outlives the procedure that creates it cannot be kept in the AR either. For example, for the method \textsf{foo() {new Bar}}, the Bar value must survive the deallocation of foo's AR. Languages with with dynamically allocated data use a heap to store dynamic data. 
+Besides globals, a value that outlives the procedure that creates it cannot be kept in the AR either. For example, for the method \texttt{foo() \{new Bar\}}, the Bar value must survive the deallocation of foo's AR. Languages with with dynamically allocated data use a heap to store dynamic data. 
 
 Now we can summarize different kinds of data that a language implementation has to deal with. 
 \begin{itemize}
 \item The code area contains object code. For many languages it is of fixed size and read-only.
 \item The static area contains data with fixed addresses, e.g. globals. This area is of fixed size, and can be read-only or writable.
 \item The stack contains an AR for each currently active procedure. Each AR is usually of fixed size, and contains the locals of the procedure.
-\item Heap contains all other data. In C, heap is managed by \textsf{malloc} and \textsf{free}, while in JAVA there is \textsf{new} for allocation and garbage collection mechanism takes care of reclaimation of heap space no longer to be used.
+\item Heap contains all other data. In C, heap is managed by \texttt{malloc} and \texttt{free}, while in JAVA there is \texttt{new} for allocation and garbage collection mechanism takes care of reclaimation of heap space no longer to be used.
 \end{itemize}
 Both stack and heap grows. We should make sure that they do not grow into each other. A simple solution is to let them start at opposite ends of the memory and grow towards each other. We end up with the partition of the memory shown in Figure \ref{mempart}. 
 \begin{figure}[ht]

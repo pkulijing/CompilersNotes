@@ -16,7 +16,7 @@ As a typical statically type checked object oriented language, Cool language req
 \end{itemize} 
 This is not an exhaustive list.
 \section{Scope}
-There can be more than one defintion of an identifier before it is used. In order to match the correct declaration of an identifier with its uses, we need to understand the conception of scope. 
+There can be more than one definition of an identifier before it is used. In order to match the correct declaration of an identifier with its uses, we need to understand the conception of scope. 
 
 The {\bf scope} of an identifier is the portion of a program in which that identifier is accessible. The same identifier may refer to different things in different parts of the same program. In such case, different scopes of the same identifier should not overlap. Programming languages can have either {\bf static scope} or {\bf dynamic scope}. Today most languages, including Cool, have static scope, which means scopes of identifiers depend only on the program text, not the runtime behaviors. There are languages that are dynamically scoped, like SNOBOL and ancient Lisp, for which scopes depend on the execution process of the program. Generally speaking, static scoped language follows {\bf the most closely nested rule}, meaning that the variable binds to the definition that is the most closely enclosing it. Dynamically scoped language follows {\bf the most recent binding rule}, meaning that the variable binds to the most recent definition during the execution.
 
@@ -35,9 +35,9 @@ Much of semantic analysis can be expressed as a recursive descent of an AST. In 
 \begin{itemize}
 \item Before: Begin processing an AST node n (preprocessing)
 \item Recurse: Process the children of n
-\item After: Finish processing node n (postprocessing)
+\item After: Finish processing node n (post-processing)
 \end{itemize}
-When performing semantic analysis on a portion of the AST, we need to know which identifiers are defined. If we divide the processing of the expression {\sf let x:T $\leftarrow e_0$ in $e_1$} into the 3 phases listed above, the preprocessing phase will add definition of x to the current definitions and override any previous definition of x, while the postprocessing phase will remove definition of x and restore the old definition of x. A {\bf symbol table} is the data structure used to track the current bindings of identifiers. 
+When performing semantic analysis on a portion of the AST, we need to know which identifiers are defined. If we divide the processing of the expression {\sf let x:T $\leftarrow e_0$ in $e_1$} into the 3 phases listed above, the preprocessing phase will add definition of x to the current definitions and override any previous definition of x, while the post-processing phase will remove definition of x and restore the old definition of x. A {\bf symbol table} is the data structure used to track the current bindings of identifiers. 
 
 To implement a simple symbol table, we can use just a stack. It contains three operations:
 \begin{itemize}
@@ -45,7 +45,7 @@ To implement a simple symbol table, we can use just a stack. It contains three o
 \item find\_symbol(x): search the stack from the top. Returns the first x found or NULL.
 \item remove\_symbol(): pop the stack.
 \end{itemize}
-This simple implementation works for {\sf let} expression because in {\sf let} expressions, declarations are perfectly nested, and symbols are added to the symbol table one at a time. In other cases, the functionality of this implementation is not sufficient, e.g. in the definition of a method in which more than one symbols can be introduced each time. We need an implemenation that covers the following operations:
+This simple implementation works for {\sf let} expression because in {\sf let} expressions, declarations are perfectly nested, and symbols are added to the symbol table one at a time. In other cases, the functionality of this implementation is not sufficient, e.g. in the definition of a method in which more than one symbols can be introduced each time. We need an implementation that covers the following operations:
 \begin{itemize}
 \item enter\_scope(): start a new nested scope
 \item find\_symbol(x): find current x (or NULL)
@@ -100,7 +100,7 @@ in which $\vdash$ is read ``it is provable that''. Here we give some rules as ex
 \mathsf{\frac{\vdash e:Bool}{\vdash!e:Bool}}\\
 \mathsf{\frac{\vdash e_1:Bool\vdash e_2: T}{\vdash while\:e_1\:loop\:e_2\:pool:Object}}
 \end{gather*}
-A type system is sound if whenever $\vdash$e:T, e evaluates to a value of type T. We only want sound rules, but some sound rules are better than others. For example, $\mathsf{\frac{\vdash i:Int}{\vdash i:Object}}$ is sound but not helpful at all.
+A type system is sound if whenever $\vdash$e:T, e evaluates to a value of type T. We only want sound rules, but some sound rules are better than others. For example, $\mathtt{\frac{\vdash i:Int}{\vdash i:Object}}$ is sound but not helpful at all.
 
 Type check proves facts in the form of e:T. The proof is on the structure of the AST. It actually has the shape of the AST, because one type rule is used for each AST node. In the rule used for an AST node e, Hypotheses are the proofs of the types of e's subexpressions, while the conclusion is the type of e. Types are computed in a bottom-up pass over the AST.
 \subsection{Type environment}
@@ -150,7 +150,7 @@ Attribute initialization inside a class also uses subtyping. O$_C$(x) = T means 
 \mathsf{O_C\vdash e_1:T_1}\\
 \mathsf{\frac{T_1\leq T_0}{ O_C\vdash x:T_0\leftarrow e_1:T_0}}
 \end{gather*}
-Consider the case of the \textsf{if} expression. The type of {\sf if $e_0$ then $e_1$ else $e_2$ fi} can be either the type of $e_1$ or that of $e_2$, depending on whether the else clause or the then clause is executed at rumtime. In this case, the best we can do is to use the smallest super type larger than both the types of $e_1$ and $e_2$, i.e. \textbf{their least upper bound}, which is denoted by {\sf Z = lub(X, Y)}. Its formal definition is 
+Consider the case of the \texttt{if} expression. The type of {\sf if $e_0$ then $e_1$ else $e_2$ fi} can be either the type of $e_1$ or that of $e_2$, depending on whether the else clause or the then clause is executed at runtime. In this case, the best we can do is to use the smallest super type larger than both the types of $e_1$ and $e_2$, i.e. \textbf{their least upper bound}, which is denoted by {\sf Z = lub(X, Y)}. Its formal definition is 
 \begin{itemize}
 \item $X\leq Z\land Y\leq Z$
 \item if $X\leq Z'\land Y\leq Z', Z\leq Z'$
@@ -169,7 +169,7 @@ The rule of case expression takes a similar but more complex form:
 \mathsf{\frac{O[T_n/x_n]\vdash e_n:T_n'}{O\vdash case\:e_0\:of\:x_1:T_1\rightarrow e_1;\:\dots;\: x_n:T_n\rightarrow e_n: lub(T_1',\dots,T_n')}}
 \end{gather*}
 \subsection{Methods type environment}
-In order to check the type of a method call, we need a mechanism similar to type environment O for variables. In Cool, method type rules are put in namespace M differnt from O, which means that a method and an object can share the same name. A rule 
+In order to check the type of a method call, we need a mechanism similar to type environment O for variables. In Cool, method type rules are put in namespace M different from O, which means that a method and an object can share the same name. A rule 
 \begin{equation*}
 \mathsf{M(C,f) = (T_1,\dots,T_n,T_{n+1})}
 \end{equation*}
@@ -192,7 +192,7 @@ Similarly, the rule of static dispatch is
 \mathsf{T_0\leq T}\\
 \mathsf{\frac{T_i\leq T_i'\quad for\quad1\leq i \leq n}{O,M\vdash e_0@T.f(e_1,\dots,e_n): T_{n+1}}}
 \end{gather*}
-For some cases involving \textsf{SELF\_TYPE}, we need to know the class in which an expression appears. Thus the full type environment of Cool contains 3 parts:
+For some cases involving \texttt{SELF\_TYPE}, we need to know the class in which an expression appears. Thus the full type environment of Cool contains 3 parts:
 \begin{itemize}
 \item A mapping O giving types to object identifiers.
 \item A mapping M giving types to methods.
@@ -203,7 +203,7 @@ The whole environment must be added to all rules, although in most cases M and C
 \mathsf{\frac{O,M,C\vdash e_1:Int\quad O,M,C\vdash e_2:Int}{O,M,C\vdash e_1+e_2:Int}}
 \end{equation}
 \subsection{Implementation}
-Cool type checking can be implemented in a single travesal over the AST. The type environment is passed down the tree from parent to child, while types are passed up the tree from child to parent.
+Cool type checking can be implemented in a single traversal over the AST. The type environment is passed down the tree from parent to child, while types are passed up the tree from child to parent.
 
 The implementation of a rule is somewhat self-explaining. The addition rule for int \eqref{intaddrule} could be implemented with the following persudo-code.
 \begin{lstlisting}
@@ -230,9 +230,9 @@ TypeCheck(Environment, let x:T $\leftarrow$ e0 in e1) {
 }
 \end{lstlisting}
 \subsection{Static v.s. dynamic typing}
-Static type checking systems detect common errors at compile time. Unfortunately, some correct programs from the perspective of rumtime are disallowed by the type checker. In order to tackle this problem, some argue for dynamic type checking instead, while others want more expressive, but meantime more complex static type checking. 
+Static type checking systems detect common errors at compile time. Unfortunately, some correct programs from the perspective of runtime are disallowed by the type checker. In order to tackle this problem, some argue for dynamic type checking instead, while others want more expressive, but meantime more complex static type checking. 
 
-One of the ideas this discussion suggests is that there are two different notions of type: the dynamic type and the static type. Dynamic type is a runtime notion. The dynamic type of an object C is the class C used in the \textsf{new C} expression that created it. Static type is a compile notion. It captures all dynamic types the expression can have. For simple type systems, we have the soundness theorem, which asserts that for all expression E, dynamic\_type(E) = static\_type(E). However, for complex type systems like that of Cool, this is not always true. For example, if class A inherits class B, then \textsf{new A} can be assigned to a variable b that has static type B. The soundness theorem of Cool should be dynamic\_type(E) $\leq$ static\_type(E), $\forall$E, which implies that subclasses can only add attributes or methods. Methods can be overriden in subclasses, but their types should be observed.
+One of the ideas this discussion suggests is that there are two different notions of type: the dynamic type and the static type. Dynamic type is a runtime notion. The dynamic type of an object C is the class C used in the \texttt{new C} expression that created it. Static type is a compile notion. It captures all dynamic types the expression can have. For simple type systems, we have the soundness theorem, which asserts that for all expression E, dynamic\_type(E) = static\_type(E). However, for complex type systems like that of Cool, this is not always true. For example, if class A inherits class B, then \texttt{new A} can be assigned to a variable b that has static type B. The soundness theorem of Cool should be dynamic\_type(E) $\leq$ static\_type(E), $\forall$E, which implies that subclasses can only add attributes or methods. Methods can be overridden in subclasses, but their types should be observed.
 \section{Self type}
 \subsection{Introduction}
 As an example of ``more expressive static typing'', we will discuss the type rule of self in Cool.
@@ -244,7 +244,7 @@ class Count {
 	inc() : Count {{ i $\leftarrow$ i + 1; self; }};
 };
 \end{lstlisting}
-This class incorporates a counter and thus can serve as a base class for any class that needs this funtionality. Consider one of such classes, the Stock class:
+This class incorporates a counter and thus can serve as a base class for any class that needs this functionality. Consider one of such classes, the Stock class:
 \begin{lstlisting}[mathescape = true]
 class Stock inherits Count {
 	name : String;
@@ -257,13 +257,13 @@ class Main {
 };
 \end{lstlisting}
 
-If the Cool type checker that we have developed is employed on this piece of code, it will actually complain about a type mismatch error: a is expecting a value of type Stock, but (new Stock).inc() has static type Count as declared in class Count. In order to use the funtionality of the counter, all subclasses of Count have to do the tedious job of redefining inc(). 
+If the Cool type checker that we have developed is employed on this piece of code, it will actually complain about a type mismatch error: a is expecting a value of type Stock, but \texttt{(new Stock).inc()} has static type Count as declared in class Count. In order to use the functionality of the counter, all subclasses of Count have to do the tedious job of redefining \texttt{inc()}. 
 
-An extension of the current type system provides an elegant solution to the problem. Instead of specifying the return type of inc() as Count or any other subclass of Count, we require that inc() should return the type of self, which could be implemented by introducing a new keyword SELF\_TYPE:
+An extension of the current type system provides an elegant solution to the problem. Instead of specifying the return type of \texttt{inc()} as Count or any other subclass of Count, we require that \texttt{inc()} should return the type of self, which could be implemented by introducing a new keyword SELF\_TYPE:
 \begin{equation*}
 \mathsf{inc() : SELF\_TYPE \{\dots\}}
 \end{equation*}
-This mechanism allows the return type of inc() changing according to the dynamic type of the object calling it. The type checker can now prove
+This mechanism allows the return type of \texttt{inc()} changing according to the dynamic type of the object calling it. The type checker can now prove
 \begin{equation*}
 \begin{split}
 &\mathsf{O,M,C\vdash(new Count).inc() : Count}\\
@@ -271,7 +271,7 @@ This mechanism allows the return type of inc() changing according to the dynamic
 \end{split}
 \end{equation*}
 \subsection{Self type operations}
-In order to make the mechanism of SELF\_TYPE work, we need to fully incorporate it into the current type system. We have defined two operations on types: the subtype relationship ($\mathsf{T_1\leq T_2}$) and the least upper bound (lub($\mathsf{(T_1,T_2)}$)). They are extended to handle SELF\_TYPE as follows.
+In order to make the mechanism of SELF\_TYPE work, we need to fully incorporate it into the current type system. We have defined two operations on types: the subtype relationship ($\mathtt{T_1\leq T_2}$) and the least upper bound (lub($\mathtt{(T_1,T_2)}$)). They are extended to handle SELF\_TYPE as follows.
 
 For subtype relationship: 
 \begin{itemize}
@@ -289,12 +289,12 @@ For least upper bound:
 \subsection{Self type usage}
 SELF\_TYPE is not allowed everywhere a type can appear. Its usage is restricted by the following rules.
 \begin{enumerate}
-\item In an inheritance chain \textsf{class T inherits T'}, neither T nor T' can be SELF\_TYPE.
-\item In an attribute declaration \textsf{x:T}, T can be SELF\_TYPE.
-\item In a let expression \textsf{let x:T in E}, T can be SELF\_TYPE.
-\item In \textsf{new T}, T can be SELF\_TYPE. It creates an object of the same dynamic type as self.
-\item In a static dispatch $\mathsf{m@T(E_1\dots E_n)}$, T cannot be SELF\_TYPE.
-\item In a method definition \textsf{m(x:T):T'}\{...\}, only T' can be SELF\_TYPE. T cannot be SELF\_TYPE because that would result in a $\mathsf{T_0\leq SELF\_TYPE}$ requirement in a dispatch, which is never true. Furthermore, take the following example.
+\item In an inheritance chain \texttt{class T inherits T'}, neither T nor T' can be SELF\_TYPE.
+\item In an attribute declaration \texttt{x:T}, T can be SELF\_TYPE.
+\item In a let expression \texttt{let x:T in E}, T can be SELF\_TYPE.
+\item In \texttt{new T}, T can be SELF\_TYPE. It creates an object of the same dynamic type as self.
+\item In a static dispatch $\mathtt{m@T(E_1\dots E_n)}$, T cannot be SELF\_TYPE.
+\item In a method definition \texttt{m(x:T):T'}\{...\}, only T' can be SELF\_TYPE. T cannot be SELF\_TYPE because that would result in a $\mathtt{T_0\leq SELF\_TYPE}$ requirement in a dispatch, which is never true. Furthermore, take the following example.
 \begin{lstlisting}[mathescape = true]
 class A { comp(x : SELF_TYPE) : Bool {...}; };
 class B inherits A {
@@ -308,7 +308,7 @@ let x : A $\leftarrow$ new B in x.comp(new A);
 Here x and new A both have static type A, thus there is no problem during type checking. But at runtime, since x has dynamic type B, it will try to access attribute b of new A when executing comp(), which causes undefined behavior, usually a crash. 
 \end{enumerate}
 \subsection{Self type checking}
-A type checking rule $\mathsf{O,M,C\vdash e:T}$ means that an expression e occurring in the body of class C has type T given the variable type environment O and method signatures M. Most type rules using SELF\_TYPE remain just the same, except that the $\leq$ and \textsf{lub} are the new ones. There are some rules that need to be updated. 
+A type checking rule $\mathsf{O,M,C\vdash e:T}$ means that an expression e occurring in the body of class C has type T given the variable type environment O and method signatures M. Most type rules using SELF\_TYPE remain just the same, except that the $\leq$ and \texttt{lub} are the new ones. There are some rules that need to be updated. 
 
 The old rule for dispatch requires that the return type is not SELF\_TYPE:
 \begin{gather*}
@@ -350,7 +350,7 @@ the rule becomes
 \mathsf{T_0\leq T}\\
 \mathsf{\frac{T_i\leq T_i'\quad for\quad1\leq i \leq n}{O,M,C\vdash e_0@T.f(e_1,\dots,e_n): T_0}}
 \end{gather*}
-Note that we are returning type $\mathsf{T_0}$ rather than C, because the type of self (i.e. $\mathsf{T_0}$) can be a subtype of the type in which method f is defined (i.e. C).
+Note that we are returning type $\mathtt{T_0}$ rather than C, because the type of self (i.e. $\mathtt{T_0}$) can be a subtype of the type in which method f is defined (i.e. C).
 
 There are two new rules due to the introduction of SELF\_TYPE:
 \begin{gather*}
@@ -362,7 +362,7 @@ Detecting where errors occur during type checking is easier that during parsing 
 
 The main problem is what type should be given to an expression with no legitimate type. This type will influence the typing of the enclosing expression. One choice is to assign type Object to ill-typed expressions. But usually this does not help much because Object does not conform to most of the type rules, thus the error will propagate up the AST, eventually escalating to a series of type errors.
 
-A better approach is to introduce a new type \textsf{No\_type} for use with ill-typed expressions. It has the property that \textsf{No\_type$\leq$C} for any type C. As a result, every operation is defined for \textsf{No\_type}. \textsf{No\_type} will be propagated up the AST just like Object in the previous approach, but the cascading errors disappear. Nonetheless, \textsf{No\_type} makes the class hierarchy no longer a tree structure. It actually becomes a DAG, which causes implementation difficulty.
+A better approach is to introduce a new type \texttt{No\_type} for use with ill-typed expressions. It has the property that \texttt{No\_type$\leq$C} for any type C. As a result, every operation is defined for \texttt{No\_type}. \texttt{No\_type} will be propagated up the AST just like Object in the previous approach, but the cascading errors disappear. Nonetheless, \texttt{No\_type} makes the class hierarchy no longer a tree structure. It actually becomes a DAG, which causes implementation difficulty.
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
