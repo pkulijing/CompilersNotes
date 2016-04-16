@@ -46,7 +46,7 @@ The compiler must determine \textbf{at compile time} the layout of activation re
 \section{Globals and heap}
 All references to a global variable point to the same object, thus they cannot be be stored in an activation record which is deallocated after an activation is completed. Globals are assigned a fixed address once, and we call these variables ``statically allocated'' because they are allocated during compile time. Depending on the language, there may be other statically allocated values.
 
-Besides globals, a value that outlives the procedure that creates it cannot be kept in the AR either. For example, for the method \texttt{foo() \{new Bar\}}, the Bar value must survive the deallocation of foo's AR. Languages with with dynamically allocated data use a heap to store dynamic data. 
+Besides globals, a value that outlives the procedure that creates it cannot be kept in the AR either. For example, for the method \texttt{foo()} \{\texttt{new Bar}\}, the Bar value must survive the deallocation of foo's AR. Languages with with dynamically allocated data use a heap to store dynamic data. 
 
 Now we can summarize different kinds of data that a language implementation has to deal with. 
 \begin{itemize}

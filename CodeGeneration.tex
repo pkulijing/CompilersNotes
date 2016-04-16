@@ -67,10 +67,10 @@ In this section we will take a look at code generation for higher level language
 
 Consider a language for integer operations. Its grammar depicts a list of function definitions:
 \begin{align*}
-&\mathsf{P\rightarrow D;\:P\:|\:D}\\
-&\mathsf{D\rightarrow def\:id(ARGS)\:=\:E}\\
-&\mathsf{ARGS\rightarrow\:id,\:ARGS\:|\:id}\\
-&\mathsf{E\rightarrow\:int\:|\:id\:|\:if\:E_1\:=\:E_2\:then\:E_3\:else\:E_4\:|\:E_1\:+\:E_2\:|\:E_1\:-\:E_2\:|\:id(E_1,\dots,E_n)}
+&\mathtt{P\rightarrow D;\:P\:|\:D}\\
+&\mathtt{D\rightarrow def\:id(ARGS)\:=\:E}\\
+&\mathtt{ARGS\rightarrow\:id,\:ARGS\:|\:id}\\
+&\mathtt{E\rightarrow\:int\:|\:id\:|\:if\:E_1\:=\:E_2\:then\:E_3\:else\:E_4\:|\:E_1\:+\:E_2\:|\:E_1\:-\:E_2\:|\:id(E_1,\dots,E_n)}
 \end{align*}
 The first function definition \texttt{f} is the entry point, i.e. the \texttt{main} routine. This language is enough to write a program that computes the Fibonacci numbers:
 \begin{equation}\label{fibonacci}\begin{split}
@@ -371,6 +371,182 @@ The dispatch pointer in an object of class X points to the dispatch table of cla
 
 Every method f of class X is assigned an offset $O_f$ in the dispatch table at compile time. To implement a dynamic dispatch \texttt{e.f()}, we will evaluate \texttt{e} to get an object \texttt{x}, and then call $D[O_f]$, in which $D$ is the dispatch table for \texttt{x}. In the call, \texttt{self} is bound to \texttt{x}. 
 \section{Semantics}
+Semantics is intended to specify for every expression what happens when it gets evaluated. We have introduced a few formal notations to define a programming language:
+\begin{itemize}
+\item Tokens (regular expressions) $\Rightarrow$ lexical analysis
+\item Context free grammars $\Rightarrow$ syntactic analysis
+\item Typing rules $\Rightarrow$ semantic analysis
+\item {\bf The evaluation rules $\Rightarrow$ code generation \& optimization}
+\end{itemize} 
+Up to now we actually have specified indirectly a complete set of evaluation rules for COOL: we compile COOL to a stack machine, then we translate the actions of the stack machine into assembly code (i.e. evaluation rules of the stack machine). But this is not a good approach because such assembly-language descriptions of language implementations involve too many irrelevant details:
+\begin{itemize}
+\item Whether to use a stack machine or not.
+\item Which way the stack grows.
+\item How integers are represented.
+\item The particular instruction set of the architecture.
+\end{itemize}
+What we want is a complete but not overly restrictive specification that allows a variety of different implementations. There exist many ways to specify semantics:
+\begin{description}
+\item[Operational semantics]Program evaluation is described via execution rules on an \textbf{abstract} machine. It is the most useful for specifying implementations.
+\item[Denotational semantics]Program's meaning is a mathematical function from input to output. Elegant but complex.
+\item[Axiomatic semantics]Program behavior is described via logical formulae. It is the foundation of many program verification systems.
+\end{description}
+\subsection{Operational semantics}
+Operational semantics are a series of logical inference rules, as type rules in type checking. A type rule $\mathtt{Context\vdash e:C}$ means that in the given context, expression \texttt{e} has type \texttt{T}. Similarly, for evaluation, the rule $\mathtt{Context\vdash e:v}$ means that in the given context, expression \texttt{e} has value \texttt{v}. 
+
+We will illustrate the concept with the evaluation of $\mathtt{y\leftarrow x + 1}$. We track variables and their values with 
+\begin{description}
+\item[An environment]Where in memory a variable is. A map from variables to memory locations.
+\item[A store]What resides in the memory. A map from memory locations to values.
+\end{description}
+A variable environment maps variables to locations. It keeps track of which variables are in scope and where those variables are. It is denoted as follow:
+\begin{equation*}
+\mathtt{E = [a:1_1, b:l_2]}
+\end{equation*}
+In this example, the environment tells us that \texttt{a,b} are respectively at location $\mathtt{l_1,l_2}$.
+
+A store maps memory locations to values. It is denoted as follow:
+\begin{equation*}
+\mathtt{S = [l_1\rightarrow v_1, l_2\rightarrow v_2]}
+\end{equation*}
+$\mathtt{S'[v'_1/l_1]}$ defines a new store $\mathtt{S'}$ such that $\mathtt{S'(l_1)=v'_1}$ and $\mathtt{S'(l)=S(l)}$ if $\mathtt{l\neq l_1}$.
+
+Given these notations, an actual evaluation rule looks like 
+\begin{equation*}
+\mathtt{so,E,S\vdash e:v,S'}.
+\end{equation*}
+Its meaning is: given \texttt{so}, the current value of \texttt{self}, under the current variable environment \texttt{E} and the current store \texttt{S}, \textbf{if the evaluation of expression \texttt{e} terminates} then the value of \texttt{e} is \texttt{v} and the new store is \texttt{S'}. Note that the store might be modified as a side-effect of the evaluation of the expression, but the variable environment and the value of \texttt{self} do not change.
+
+\subsection{COOL semantics}
+\subsubsection{Denotation}
+In COOL, all values are objects, i.e. instances of some class. We use the denotation
+\begin{equation*}
+\mathtt{X(a_1=l_1,\dots,a_n=l_n)}
+\end{equation*}
+to represent an object of the class $\mathtt{X}$ of which $\mathtt{a_i}$ is an attribute and $\mathtt{l_i}$ is the location where the value of $\mathtt{a_i}$ is stored. 
+
+For basic classes without attributes(\texttt{Int, Bool, String}), they are specially denoted as
+\begin{center}
+\texttt{Int(5), Bool(true), String(4,"Cool")}
+\end{center}
+The integer in the denotation of String is its length.
+
+There is a special value \texttt{void} of type \texttt{Object}. No operations except for the test \texttt{isvoid} can be performed on it. Concrete implementation might use \texttt{NULL} here.
+\subsubsection{constants}
+\begin{gather*}
+\mathtt{\frac{}{so,E,S\vdash {\color{red}true}:Bool(true),S}},\;\mathtt{\frac{}{so,E,S\vdash {\color{red}false}:Bool(false),S}}\\
+\mathtt{\frac{\texttt{i is an integer literal}}{so,E,S\vdash {\color{red}i}:Int(i),S}}\\
+\end{gather*}
+\begin{gather*}
+\texttt{s is a string literal}\\
+\mathtt{\frac{\texttt{n is the length of s}}{so,E,S\vdash {\color{red}s}:String(n,s),S}}\\
+\end{gather*}
+\subsubsection{identifiers}
+\begin{gather*}
+\mathtt{E(id)=l_{id}}\\
+\mathtt{\frac{S(l_{id}=v)}{so,E,S\vdash {\color{red}id}:v,S}}\\
+\end{gather*}
+\subsubsection{self}
+\begin{equation*}
+\mathtt{\frac{}{so,E,S\vdash {\color{red}self}:so,S}}
+\end{equation*}
+\subsubsection{assignment}
+\begin{gather*}\tt
+\mathtt{so,E,S\vdash e:v,S_1}\\
+\mathtt{E(id) = l_{id}}\\
+\mathtt{\frac{S_2=S_1[v/l_{id}]}{so,E,S\vdash {\color{red}id\leftarrow e}:v,S_2}}
+\end{gather*}
+\subsubsection{addition}
+\begin{gather*}
+\mathtt{so,E,S\vdash e_1:v_1,S_1}\\
+\mathtt{\frac{so,E,S_1\vdash e_2:v_2,S_2}{so,E,S\vdash {\color{red}e_1+e_2}:v_1 + v_2,S_2}}
+\end{gather*}
+\subsubsection{expression block}
+\begin{gather*}
+\mathtt{so,E,S\vdash e_1:v_1,S_1}\\
+\mathtt{so,E,S_1\vdash e_2:v_2,S_2}\\
+\dots\\
+\mathtt{\frac{so,E,S_{n-1}\vdash e_n:v_n,S_n}{so,E,S\vdash{\color{red}\{e_1;\dots;e_n\}}:v_n,S_n}}
+\end{gather*}
+\subsubsection{if-then-else}
+\begin{gather*}
+\mathtt{so,E,S\vdash e_1:Bool(true),S_1}\\
+\mathtt{\frac{so,E,S_1\vdash e_2:v,S_2}{so,E,S\vdash{\color{red}if\:e_1\:then\:e_2\:else\:e_3\:fi}:v,S_2}}\\
+\end{gather*}
+\begin{gather*}
+\mathtt{so,E,S\vdash e_1:Bool(false),S_1}\\
+\mathtt{\frac{so,E,S_1\vdash e_3:v,S_3}{so,E,S\vdash{\color{red}if\:e_1\:then\:e_2\:else\:e_3\:fi}:v,S_3}}
+\end{gather*}
+\subsubsection{while loop}
+\begin{gather*}
+\mathtt{\frac{so,E,S\vdash e_1:Bool(false),S_1}{so,E,S\vdash{\color{red}while\:e_1\:loop\:e_2\:pool}:void,S_1}}
+\end{gather*}
+\begin{gather*}
+\mathtt{so,E,S\vdash e_1:Bool(false),S_1}\\
+\mathtt{so,E,S_1\vdash e_2:v,S_2}\\
+\mathtt{\frac{so,E,S_2\vdash while\:e_1\:loop\:e_2\:pool:void,S_3}{so,E,S\vdash{\color{red}while\:e_1\:loop\:e_2\:pool}:void,S_3}}
+\end{gather*}
+\subsubsection{let}
+\begin{gather*}
+\mathtt{so,E,S\vdash e_1:v_1,S_1}\\
+\mathtt{l_{new}=newloc(S_1)}\\
+\mathtt{\frac{so,E[l_{new}/id],S_1[v_1/l_{new}]\vdash e_2:v_2,S_2}{so,E,S\vdash{\color{red}let\:id:T\leftarrow e_1\:in\:e_2}:v_2,S_2}}
+\end{gather*}
+$\mathtt{l_{new}=newloc(S_1)}$ means that $\mathtt{l_{new}}$ is a location not already used in \texttt{S}.
+\subsubsection{new T}
+Tasks to be completed:
+\begin{itemize}
+\item Allocation locations to hold all attributes of class T.
+\item Set attributes with their default values.
+\item Evaluate the initializers and set the resulting values.
+\item Return the newly allocated object.
+\end{itemize}
+For each class \texttt{A} there is a default value $\mathtt{D_A}$: $\mathtt{D_{int}}$ = \texttt{Int(0)}, $\mathtt{D_{bool}}$ = \texttt{Bool(false)}, $\mathtt{D_{string}}$ = \texttt{String(0,"")}, $\mathtt{D_A}$ = \texttt{void} (for any other class \texttt{A}). In order to refer to the function's attributes in the rules, we define a function
+\begin{equation*}
+\mathtt{class(A)\:=\:(a_1:T_1\leftarrow e_1,\dots,a_n:T_n\leftarrow e_n)}
+\end{equation*}
+in which $\mathtt{a_i}$ are the attributes (including inherited ones listed in greatest ancestor first order), $\mathtt{T_i}$ are their declared types, and $\mathtt{e_i}$ are the initializers. Finally we have the evaluation rule of \texttt{new T}.
+\begin{gather*}
+\mathtt{T_0=if\:(T==SELF\_TYPE\:and\:so=X(\dots))\:then\:X\:else\:T}\\
+\mathtt{class(T_0)=(a_1:T_1\leftarrow e_1,\dots,a_n:T_n\leftarrow e_n)}\\
+\mathtt{l_i=newloc(S)\:for\:i=1,\dots,n}\\
+\mathtt{v=T_0(a_1=l_1,\dots,a_n=l_n)}\\
+\mathtt{S_1=S[D_{T_1}/l_1,\dots,D_{T_n}/l_n]}\\
+\mathtt{E'=[a_1:l_1,\dots,a_n:l_n]}\\
+\mathtt{\frac{\mathtt{{\color{blue}v,E'},S_1\vdash \{a_1\leftarrow e_1;\dots;a_n\leftarrow e_n;\}:v_n,S_2}
+}{so,E,S\vdash{\color{red}new\:T}:v,S_2}}
+\end{gather*}
+Note that \texttt{E'} is irrelevant to \texttt{E}. It's the environment in which the attributes of the new object is evaluated. Only the attributed are in scope in this environment. Also note that during the evaluation of the initializers, \texttt{self} is the current object \texttt{v}.
+\subsubsection{dynamic dispatch $\mathtt{e_0.f(e_1,\dots,e_n)}$}
+Task to be completed:
+\begin{itemize}
+\item Evaluate arguments in order $\mathtt{e_1,\dots,e_n}$.
+\item Evaluate $\mathtt{e_0}$ to the targeted object.
+\item Let \texttt{X} be the \underline{dynamic} type of the target object.
+\item Fetch from \texttt{X} the definition of \texttt{f}(with \texttt{n} arguments).
+\item Create \texttt{n} new locations and an environment that maps \texttt{f}'s formal arguments to those locations.
+\item Initialize the locations with the actual arguments.
+\item Set \texttt{self} to the target object and evaluate \texttt{f}'s body.
+\end{itemize}
+In order to look up a method in a class, we define a function
+\begin{equation*}
+\mathtt{impl(A,f)=(x_1,\dots,x_n,e_{body})}
+\end{equation*}
+in which $\mathtt{x_i}$ are the names of the formal arguments, and $\mathtt{e_{body}}$ is the body of the method. Now we have the evaluation rule for dynamic dispatch as follow.
+\begin{gather*}
+\mathtt{so,E,S\vdash e_1:v_1,S_1}\\
+\mathtt{so,E,S_1\vdash e_2:v_2,S_2}\\
+\dots\\
+\mathtt{so,E,S_{n-1}\vdash e_n:v_n,S_n}\\
+\mathtt{so,E,S_n\vdash e_0:v_0,S_{n+1}}\\
+\mathtt{v_0=X(a_1=l_1,\dots,a_m=l_m)}\\
+\mathtt{impl(X,f)=(x_1,\dots,x_m,e_{body})}\\
+\mathtt{l_{x_i} = newloc(S_{n+1})\:for\:i=1,\dots,n}\\
+\mathtt{\color{blue}E'=[a_1:l_1,\dots,a_m:l_m][x_1/l_{x_1},\dots,x_n/l_{x_n}]}\\
+\mathtt{S_{n+2}=S_{n+1}[v_1/l_{x_1},\dots,v_n/l_{x_n}]}\\
+\mathtt{\frac{{\color{blue}v_0,E'},S_{n+2}\vdash e_{body}:v,S_{n+3}}{so,E,S\vdash{\color{red}e_0.f(e_1,\dots,e_n)}:v,S_{n+3}}}
+\end{gather*}
+Note the definition of \texttt{E'} is an update of $\mathtt{a_i}$ by $\mathtt{x_i}$ rather than the combination of them, because it is possible that some of the arguments are attributes of the object. In such case, the arguments are in scope.
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
