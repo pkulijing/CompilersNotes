@@ -6,7 +6,7 @@
 \section{Stack machines}
 A stack machine uses only a stack as storage. When executing an instruction $\mathtt{r = F(a_1,\dots,a_n)}$, it pops n operands from the stack, computes the operation F using the operands, and pushes the result r back on the stack. For example, when computing 7 + 5, the stack will change from s-7-5 to s-12. 
 
-Consider two instructions: push i (push integer i on the stack) and add (add two integers). Then we have the program to computer 7 + 5:
+Consider two instructions: push i (push integer i on the stack) and add (add two integers). Then we have the program to compute 7 + 5:
 \begin{center}
 push 7\\push 5\\add
 \end{center}
@@ -78,7 +78,7 @@ The first function definition \texttt{f} is the entry point, i.e. the \texttt{ma
 &\texttt{if x = 2 then 1 else}\\
 &\texttt{fib(x - 1) + fib(x - 2)}
 \end{split}\end{equation}
-For each expression \texttt{e}, we want to generate MIPS code that \textbf{computers the value of \texttt{e} in \$a0} and \textbf{preserves \$sp and the content of the stack}. We will define a function \texttt{cgen(e)} whose return value if the code generated for \texttt{e}.
+For each expression \texttt{e}, we want to generate MIPS code that \textbf{compute the value of \texttt{e} in \$a0} and \textbf{preserves \$sp and the content of the stack}. We will define a function \texttt{cgen(e)} whose return value if the code generated for \texttt{e}.
 
 \subsection{Constants}
 For constants, we need to simply load it into the accumulator:
@@ -482,7 +482,7 @@ There is a special value \texttt{void} of type \texttt{Object}. No operations ex
 \mathtt{\frac{so,E,S\vdash e_1:Bool(false),S_1}{so,E,S\vdash{\color{red}while\:e_1\:loop\:e_2\:pool}:void,S_1}}
 \end{gather*}
 \begin{gather*}
-\mathtt{so,E,S\vdash e_1:Bool(false),S_1}\\
+\mathtt{so,E,S\vdash e_1:Bool(true),S_1}\\
 \mathtt{so,E,S_1\vdash e_2:v,S_2}\\
 \mathtt{\frac{so,E,S_2\vdash while\:e_1\:loop\:e_2\:pool:void,S_3}{so,E,S\vdash{\color{red}while\:e_1\:loop\:e_2\:pool}:void,S_3}}
 \end{gather*}
