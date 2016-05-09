@@ -3,6 +3,94 @@
 \begin{document}
 \fi
 \chapter{Optimization}
+\section{Intermediate code}
+Intermediate code uses a language between the source language and the target language. It provides an intermediate level of abstraction: more details than the source and fewer details than the target. High-level source languages like \texttt{Cool} and \texttt{C} reveals less low-level conceptions such as registers, making it difficult to find room for optimization, while low-level languages like assembly language are often limited to a specific type of machine architecture. 
+
+We will introduce the conception with an intermediate language that can be called a ``high level assembly language''. It uses register names, but has an unlimited number of registers. It uses control structures like assembly language. Opcodes are used, but some of them are higher level (e.g. \texttt{\color{red}push}, which will be translated into a few assembly instructions on a machine of a particular architecture). Each instruction is either binary ($\mathtt{\color{red}x\coloneqq y\:op\:z}$) or unary($\mathtt{\color{red}x\coloneqq op\:y}$). Arguments on the right are always registers or constants. This is actually a wide-used form of intermediate code called \textbf{three-address code}. In this language, every intermediate value will have its own name. 
+
+Generating intermediate code is similar to generating assembly code, except that unlimited number of registers can be used, which renders easier code generation. If we use $\color{red}\mathtt{igen(e,t)}$ to denote the function that generates code for expression \texttt{e} and stores the result in register \texttt{t} , we will have 
+\begin{align*}
+\mathtt{igen}&\mathtt{(e_1 + e_2,t)=}\\
+&\mathtt{igen(e_1,t_1)}\\
+&\mathtt{igen(e_2,t_2)}\\
+&\mathtt{t\coloneqq t_1 + t_2}
+\end{align*}
+\section{Optimization overview}
+Optimizations can be performed at different times:
+\begin{enumerate}
+\item On AST
+\begin{description}
+\item[Pro]Machine independent
+\item[Con]Too high level
+\end{description}
+\item On assembly language
+\begin{description}
+\item[Pro]Exposes the most optimization opportunities
+\item[Con]Machine dependent. Has to be reimplemented when re-targeting to different architectures.
+\end{description}
+\item {\color{red}On intermediate language}
+\begin{description}
+\item[Pro]Machine independent. Exposes optimization opportunities.
+\end{description}
+\end{enumerate}
+We will discuss optimizations performed on intermediate languages. The intermediate language we use can be described with the following CFG:
+\begin{align*}
+\mathtt{P\rightarrow\:}&\mathtt{SP\:|\:S}\\
+\mathtt{S\rightarrow\:}&\mathtt{id\coloneqq id\:op\:id}\\
+|\:&\mathtt{id\coloneqq op\:id}\\
+|\:&\mathtt{push\:id}\\
+|\:&\mathtt{id\coloneqq pop}\\
+|\:&\mathtt{if\:id\:relop\:id\:goto\:L}\\
+|\:&\mathtt{L:}\\
+|\:&\mathtt{jump\:L}
+\end{align*}
+\texttt{Id}'s are registers, and can be substituted by constants when they serve as arguments. Typical operations are {\color{red}+,-,*,/}. 
+
+A \textbf{basic block} is a maximal sequence of instructions with no labels (except for the first instruction) and no jumps(except for the last instruction). The execution can only jump into a basic block at the first instruction and jump out of it at the last instruction. There is no other way to jump into it, and all instructions inside the block are guaranteed to be executed sequentially before the execution jumps out. This property enables us to conduct a series of optimizations.
+
+A \textbf{control flow graph} is a directed graph with basic blocks as nodes. An edge from block A to block B exists if the execution can pass from the last instruction in A to the first instruction in B. The body of a method can be represented as a control flow graph. There is one initial node, and all ``return'' nodes are terminals. 
+
+The purpose of optimization is to \textbf{improve a program's resource utilization}. Most of the time we try to make the program run faster, i.e. reduce the execution time. Other resources that optimization could be concerned about are code size, memory footprint, network messages sent, disk accesses, power, etc. The bottom line is that optimization should not alter what the program computes.
+
+For languages like \texttt{C} and \texttt{Cool} there are 3 granularities of optimizations:
+\begin{description}
+\item[Local optimization]Applies to an isolated basic block.
+\item[Global optimization]Applies to an isolated control flow graph (method body).
+\item[Inter-procedural optimization]Applies across method boundaries.
+\end{description}
+Local optimizations are performed by most mainstream compilers. Many of them also perform global optimizations. Few compilers touch inter-procedural optimizations, not only because it's hard to implement, but also because it often does not provide as much improvement as the first two. In practice, it is usually a wise decision not to implement the fanciest optimizations because they tend to be hard to implement, costly in compile time while not much payoff can be gained.
+\section{Local optimization}
+Local optimization focuses on a single basic block. There is no need to analyze the entire method body.
+\subsection{Constant folding}
+For an instruction $\mathtt{x\coloneqq y\:op\:z}$ in which \texttt{y,z} are both constants, $\mathtt{y\:op\:z}$ can be computed at compile time. E.g., $\mathtt{x\coloneqq 2 + 2\Rightarrow x\coloneqq 4}$.
+
+Constants folding can be dangerous when the compiler and the target code it generates are run on different machines, which is not uncommon in reality, e.g. in most embedded platforms. The two machines might feature different round-offs of floating point numbers. If we do constant folding according to the floating point semantics of the compile machine directly at compile time, we may end up with unwanted result at runtime. An obvious solution is to keep full precision inside the compiler and represent floating pointer numbers as string literals, and leave it to the runtime machine to handle the round offs.
+\subsection{Eliminate unreachable basic blocks}
+By eliminating basic blocks that cannot be reached from the initial block, we can make the program smaller, and sometimes faster, because of cache effects.
+\subsection{Common subexpression elimination}
+Some optimizations can be simplified if each register occurs only once on the lhs of an assignment. Intermediate code can be rewritten into \textbf{single assignment form} by introducing new registers to substitute earlier appearances of registers that are assigned more than once. 
+
+If a basic block is in single assignment form and a definition $\color{red}\mathtt{x\coloneqq}$ is the first use of \texttt{x} in a block, then when two assignments have the same rhs, they are guaranteed to compute the same value, which allows us saving the trouble of computing the same expression twice. We can simply substitute the second appearance of the rhs with the register assigned in its first appearance.
+\subsection{Copy propagation}
+if $\color{red}\mathtt{w\coloneqq x}$ appears in a block, subsequent use of \texttt{w} can be replaced with \texttt{x}.
+\subsection{Dead instruction elimination}
+if $\color{red}\mathtt{w\coloneqq rhs}$ appears in a basic block, and \texttt{w} does not appear anywhere else in the program, then the instruction is dead and can be eliminated.
+
+Each local optimization does little by itself, but typically optimizations will interact with each other. Performing one optimization might enable another one. Thus the usual approach is to iterate until no more improvements can be made. The optimizer can also be stopped at any point to limit compilation time. 
+\subsection{Peephole optimization}
+Local optimizations can be applied directly to assembly code rather than to intermediate code. \textbf{Peephole optimization} is effective for improving assembly code. The ``peephole'' is a short sequence of contiguous instructions. The optimizer replaces the sequence with an equivalent but faster sequence. The process is repeated for maximum effect.
+\section{Global optimization}
+\subsection{Dataflow analysis}
+In order to replace a use of \texttt{x} by a constant \texttt{k} we must make sure that on every path to the use of \texttt{x}, the last assignment to \texttt{x} is $\mathtt{x\coloneqq k}$. This condition is not trivial to check, considering the existence of loops and conditional branches. Global \textbf{dataflow analysis} is required to check this condition.
+
+Global optimization tasks share several common traits:
+\begin{itemize}
+\item The optimization depends on knowing a property X at a particular point in program execution.
+\item Proving X at any single point requires knowledge of the entire program.
+\item It is OK to be conservative. If the optimization requires X being true, then we want to figure out whether X is definitely true or we don't know if X is true. It is always safe to say ``don't know''.
+\end{itemize}
+\subsection{Global constant propagation}
+
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
