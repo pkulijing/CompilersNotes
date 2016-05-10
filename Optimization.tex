@@ -90,7 +90,63 @@ Global optimization tasks share several common traits:
 \item It is OK to be conservative. If the optimization requires X being true, then we want to figure out whether X is definitely true or we don't know if X is true. It is always safe to say ``don't know''.
 \end{itemize}
 \subsection{Global constant propagation}
+We use the following denotations to note the status of \texttt{x} at each program point:
+\begin{description}
+\item[$\bot$]: The statement never gets executed.
+\item[C]: Constant C.
+\item[$\top$]: \texttt{x} is not a constant.
+\end{description}
+Once we have the status of \texttt{x} at every program point, we can simply replace the use of \texttt{x} by the associated constant where the status of \texttt{x} is constant. In order to gain this information, we define a function $\mathtt{\color{red}C(x,s,in/out)}$ to compute information about the value of \texttt{x} before/after the statement \texttt{s}. In the following discussion, statement \texttt{s} has immediate predecessor statements $\mathtt{p_1,\dots,p_n}$. We have the following rules to infer the \texttt{in} status of one statement from the \texttt{out} of its predecessors.
+\begin{enumerate}
+\item If $\mathtt{C(p_i,x,out) = \top}$ for any \texttt{i}, then $\mathtt{C(s,x,in) = \top}$.
+\item If $\mathtt{C(p_i,x,out) = c_i,\:C(p_j,x,out) = c_j,\:c_i\neq c_j}$, then $\mathtt{C(s,x,in) = \top}$.
+\item If $\mathtt{C(p_i,x,out) = c}$ for at least one \texttt{i} and $\mathtt{C(p_i,x,out) = \bot}$ for all other \texttt{i}, then $\mathtt{C(s,x,in) = c}$.
+\item If $\mathtt{C(p_i,x,out) = \bot}$ for all \texttt{i}, then $\mathtt{C(s,x,in) = \bot}$.  
+\end{enumerate} 
+Now we discuss the rules to infer the \texttt{out} status of a statement from its own \texttt{in} status.
+\begin{enumerate}
+\setcounter{enumi}{4}
+\item If $\mathtt{C(s,x,in)=\bot}$, then $\mathtt{C(s,x,out)=\bot}$.
+\item $\mathtt{C(x\coloneqq c,x,out)=c}$ if \texttt{c} is a constant.
+\item $\mathtt{C(x\coloneqq f(\dots),x,out)=\top}$, if \texttt{f(\dots)} is not a constant.
+\item If $\mathtt{y\neq x}$, then $\mathtt{C(y\coloneqq \dots,x,out)=C(y\coloneqq \dots,x,in)}$.
+\end{enumerate}
+We can gain information about status of \texttt{x} on all program points with the following algorithm:
+\begin{enumerate}
+\item For every entry \texttt{s} to the program, set $\mathtt{C(s,x,in)=\top}$.
+\item Set $\mathtt{C(s,x,in/out)=\bot}$ everywhere else.
+\item Repeat until the rules above are satisfied: pick statement \texttt{s} that does not satisfy the rules and update accordingly. 
+\end{enumerate}
 
+Special consideration needs to be taken when it comes to loops. If the \texttt{in} status of each statement relies on its predecessors, the reliance relation will form a cycle, making it impossible to obtain a result without assigning some initial values. The initial value $\bot$, which means ``by far the execution hasn't reached this point", is obviously a wise choice.
+
+The rules above can actually be simplified by the idea of ordering among the 3 values : $\bot < \mathtt{C} < \top$. Note that different constants are not comparable to each other. Rules 1-4 can actually be written as 
+\begin{equation*}
+\mathtt{C(s,x,in)=\underset{i}{lub}(C(p_i,x,out))}
+\end{equation*}
+in which \texttt{lub} means least upper bound\footnote{We used this concept in the discussion of type checking}. The use of \texttt{lub} actually explains why the algorithm is guaranteed to terminate. All values start as $\bot$ and can only increase, thus the status at any point can change at most twice, which implies that the constant propagation algorithm is linear in program size: total number of steps $\leq$ 2 * Number of $\mathtt{C(\dots)}$ values to compute = 4 * Number of statements.
+\subsection{Liveness analysis}
+Once constants have been propagated, we would like to eliminate dead code. This involves the analysis of \textbf{liveness}. A variable \texttt{x} is live at statement \texttt{s} if 
+\begin{itemize}
+\item There exists a statement \texttt{s'} that uses \texttt{x}.
+\item There is a path from \texttt{s} to \texttt{s'}.
+\item That path has no intervening assignment to \texttt{x}.
+\end{itemize}
+A statement $\mathtt{x\coloneqq \dots}$ is dead code and can be removed if \texttt{x} is dead after the assignment. The propagation of liveness obeys the following rules:
+\begin{enumerate}
+\item $\mathtt{L(p,x,out) = \underset{i}{\cup}\:L(s_i,x,in)}$, in which $\mathtt{s_i}$ are successors of \texttt{p}.
+\item $\mathtt{L(s,x,in)=true}$ if \texttt{s} refers to \texttt{x} on the rhs.
+\item $\mathtt{L(x\coloneqq e,x,in)=false}$ if \texttt{e} does not refer to \texttt{x}.
+\item $\mathtt{L(s,x,in)=L(s,x,out)}$ if \texttt{s} does not refer to \texttt{x}.
+\end{enumerate}
+We can obtain the liveness information of variables using the following algorithm, just as we did for constant propagation:
+\begin{enumerate}
+\item Initialize all $\mathtt{L(\dots)=false}$.
+\item Repeat until all statements satisfy the rules above: pick \texttt{s} where the rules are not satisfied and update accordingly.
+\end{enumerate}
+A value can change from false to true but not the other way around, thus can change only once, which guarantees the termination of the algorithm.
+
+Constant propagation is a forward analysis (information pushed from input to output), while liveness analysis is a backward analysis (information pushed from output to input). There exist other global dataflow analysis, and most of them can be classified as either forward or backward analysis. Most of them follow the methodology of \textbf{local rules relating information between adjacent program points}. 
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
