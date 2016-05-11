@@ -147,6 +147,7 @@ We can obtain the liveness information of variables using the following algorith
 A value can change from false to true but not the other way around, thus can change only once, which guarantees the termination of the algorithm.
 
 Constant propagation is a forward analysis (information pushed from input to output), while liveness analysis is a backward analysis (information pushed from output to input). There exist other global dataflow analysis, and most of them can be classified as either forward or backward analysis. Most of them follow the methodology of \textbf{local rules relating information between adjacent program points}. 
+\section{Register allocation}
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
