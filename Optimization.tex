@@ -148,6 +148,51 @@ A value can change from false to true but not the other way around, thus can cha
 
 Constant propagation is a forward analysis (information pushed from input to output), while liveness analysis is a backward analysis (information pushed from output to input). There exist other global dataflow analysis, and most of them can be classified as either forward or backward analysis. Most of them follow the methodology of \textbf{local rules relating information between adjacent program points}. 
 \section{Register allocation}
+Intermediate code uses unlimited temporaries, which simplifies code generation and optimization, but complicates final translation to assembly. The intermediate needs to be rewritten by assigning multiple temporaries to the same register without changing the behavior of the program, so that it uses no more temporaries than the number of machine registers. Register allocation is as old as compilers. 
+
+The basic principle of register allocation is that \textbf{temporaries $t_1$ and $t_2$ can share the same register if at any point in the program at most one of them is live}. In other words, \textbf{if $t_1$ and $t_2$ are both live at any time of the program, they cannot share a register}.
+\subsection{Register interference graph (RIG)}
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.7\textwidth]{liveness.jpg}
+\caption{Liveness analysis of a program}\label{liveness}
+\end{figure}
+
+Take the program in Figure \ref{liveness} as an example. Its liveness analysis result is also shown. We can build an undirected graph according to this information. Each temporary is a node in the graph, and an edge is added between $t_1$ and $t_2$ if they are both live at some point in the program. The graph is called the \textbf{register interference graph (RIG)}. According to the principle above, two temporaries can share the same register as long as there is no edge between them in the RIG. The RIG of the program in Figure \ref{liveness} is shown in Figure \ref{rig}. In this example, \texttt{a} and \texttt{d} can use the same register since there is no edge between them.
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.3\textwidth]{rig.jpg}
+\caption{RIG}\label{rig}
+\end{figure}
+
+RIG extracts exactly the information needed to carry out register allocation, and it provides a global (i.e. over the entire control flow graph) picture of the requirements for register allocation. After the construction of the RIG, the register allocation algorithm that we will present is architecture independent.
+\subsection{Graph coloring}
+A \textbf{coloring of graph} is an assignment of colors to nodes such that nodes connected by an edge have different colors. A graph is \textbf{k-colorable} if it can be colored using k or fewer colors. In our problem, if the RIG is k-colorable, then there must exist a register assignment that uses no more than k machine registers. The RIG shown in Figure \ref{rig} is 4-colorable.
+
+We will take a divide-and-conquer approach to solve the problem.
+\begin{itemize}
+\item Pick a node \texttt{t} with \textbf{fewer} than \texttt{k} neighbors in the RIG.
+\item Eliminate \texttt{t} and its edges from the RIG.
+\item If the rest of the RIG is \texttt{k}-colorable, then so is the original RIG.
+\end{itemize}
+The logic is quite intuitive. Let $c_1,\dots,c_n(n<k)$ be the colors assigned to the neighbors of \texttt{t} in the reduced graph, then we can pick a color from the $k-n$ colors unused by these neighbors to color \texttt{t} in the original RIG. The whole process can be described as below.
+\begin{enumerate}
+\item Build the stack of nodes.
+\begin{itemize}
+\item Pick a node \texttt{t} with fewer than \texttt{k} neighbors.
+\item Push \texttt{t} on the stack and remove it from the RIG.
+\item Repeat until the RIG is empty.
+\end{itemize}
+\item Assign colors to nodes.
+\begin{itemize}
+\item Pop the node on top of the stack.
+\item Color the node with a color different from those assigned to its neighbors, which have been popped out of the stack and colored in previous steps.
+\end{itemize}
+\end{enumerate}
+\subsection{Spilling}
+When the heuristic fails to find a coloring, it means that it is impossible to hold all temporaries in the registers. Some of them have to be \textbf{spilled} to the memory. 
+
+When we get stuck in the heuristic, we will find that all nodes left in the RIG have k or more neighbors. We need to choose a node as a candidate for spilling. The associated value will have to live in the memory. The chosen node and its edges will then be removed from the RIG, and we continue the coloring with the rest of the RIG.
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
