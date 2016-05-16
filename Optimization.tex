@@ -190,9 +190,128 @@ The logic is quite intuitive. Let $c_1,\dots,c_n(n<k)$ be the colors assigned to
 \end{itemize}
 \end{enumerate}
 \subsection{Spilling}
-When the heuristic fails to find a coloring, it means that it is impossible to hold all temporaries in the registers. Some of them have to be \textbf{spilled} to the memory. 
+When the heuristic fails to find a coloring, it is impossible to hold all temporaries in the registers. Some of them have to be \textbf{spilled} to the memory. 
 
-When we get stuck in the heuristic, we will find that all nodes left in the RIG have k or more neighbors. We need to choose a node as a candidate for spilling. The associated value will have to live in the memory. The chosen node and its edges will then be removed from the RIG, and we continue the coloring with the rest of the RIG.
+When we get stuck in the heuristic, we will find that all nodes left in the RIG have \texttt{k} or more neighbors. We need to choose a node as a candidate for spilling. The associated value might have to live in the memory. The chosen node \texttt{f} and its edges will be removed from the RIG, and we continue the coloring with the rest of the RIG. If the coloring ends up with success, we eventually have to assign a color to \texttt{f}. If its (\texttt{k} or more) neighbors use fewer than \texttt{k} colors, a color can easily be assigned, which is the case of \textbf{optimistic coloring}. If optimistic coloring fails, \texttt{f} has to be spilled. We need to:
+\begin{itemize}
+\item Allocate a memory location ,typically in the current frame, for \texttt{f}, noted as \texttt{fa}.
+\item Before each operation that reads \texttt{f}, insert \texttt{f $\coloneqq$ load fa}.
+\item After each operation that writes \texttt{f}, insert \texttt{store f, fa}.
+\end{itemize} 
+Note that different \texttt{load}s and \texttt{store}s of \texttt{f} do not have to use the same register, thus occurrences of \texttt{f} should be indexed (\texttt{f1, f2, }etc.). The liveness information needs to be recalculated. The new liveness information is almost the same as the old one, except that \texttt{f} has been split into several different temporaries. \texttt{fi} is live only between a \texttt{fi $\coloneqq$ load fa} and the next instruction (which reads it), and between a \texttt{store fi, fa} and the preceding instruction (which writes it). Obviously, spilling reduces the inferences of \texttt{f} with other temporaries, resulting in a RIG in which each \texttt{fi} has fewer neighbors than the original \texttt{f}.
+
+It is not uncommon that additional spilling is required before a coloring is found. The tricky part of spilling is the choice of the node to spill. There is no best choice, but it might well be helpful to spill the temporary with the most conflicts, which is the most promising choice for obtaining a colorable RIG, or the one with few definitions and uses so that the number of resulting memory operations can be minimized. Note that spilling temporaries in inner loops should be avoided for efficiency. 
+\section{Cache management}
+Recall the memory hierarchy of modern computers: registers(KB) $\rightarrow$ cache(MB) $\rightarrow$ main memory(GB) $\rightarrow$ disk(TB). The access to caches is much faster than that to the main memory, but the cost of a cache miss is very high. Thus caches need to be properly managed. Compilers are good at managing registers, but there is little that they are able to do to manage caches, which is a job mostly left for the programmers.
+
+Consider the following piece of code.
+\begin{lstlisting}
+for(int i = 0; i < 10; ++i)
+	for(int j = 0; j < 1000000; ++j)
+		a[i] *= b[i];
+\end{lstlisting}
+Clearly every access to \texttt{a[i]} and \texttt{b[i]} is a cache miss. If we switch the two loops:
+\begin{lstlisting}
+for(int j = 0; j < 1000000; ++j)
+	for(int i = 0; i < 10; ++i)
+		a[i] *= b[i];
+\end{lstlisting}
+The cache behavior becomes much better. Some, but not all, compilers implement this optimization to achieve better management of caches. Note that it's not always easy for the compiler to figure out whether the switch of loops is legal or not.
+\section{Automatic memory management (GC)}
+
+Storage management is still a hard problem in modern programming. C and C++ use manual storage management, which results in many storage bugs: memory leak, deference of dangling pointers, overwriting parts of a data structure by accident, etc. Such bugs are hard to find because they often do not show visible effect until far away in time and space. Heavy efforts have been made to develop a series of techniques for completely automatic memory management since the 1950s. But it didn't become mainstream until the popularity of JAVA in the 1990s. 
+
+The basic principle of \textbf{automatic memory management}, or \textbf{garbage collection} is simple. Memory is allocated when an object is created, and this piece of memory will be reclaimed for future allocation once the object can no longer be used again by the program. 
+
+Intuitively, a program can only use the objects that it can find. A formal definition is the \textbf{reachability} of an object. An object \texttt{x} is reachable if and only if a register contains a pointer to \texttt{x}, or another reachable object contains a pointer to \texttt{x}. All reachable objects can be found by starting from registers and following all the pointers, which requires knowledge of the AR. An unreachable object can never be used again, and is called \textbf{garbage}. Note that reachability guarantees the possibility of future uses rather than actual future uses. Thus reachable objects are actually an approximation of objects that will be used later.  
+
+We will present a few mainstream GC methods in the rest of this section.
+\subsection{Mark and sweep}
+The \textbf{mark and sweep} method executes 2 phases when memory runs out:
+\begin{description}
+\item[the mark phase]traces all reachable objects;
+\item[the sweep phase]collects garbage objects.
+\end{description}
+Every object will have an extra bit reserved for memory management called \textbf{the mark bit}, which is initialized to 0 and gets set to 1 during the mark phase if the object is reachable. The mark phase is shown in Algorithm \ref{markphase}.
+\begin{algorithm}
+\caption{The mark phase}\label{markphase}
+\begin{algorithmic}
+\State{\textbf{let} todo = \{all roots\}}
+\While{todo $\neq$ \o}
+\State{pick v $\in$ todo}
+\State{todo $\leftarrow$ todo - \{v\}}
+\If {mark(v) = 0}
+\State{mark(v) $\leftarrow$ 1}
+\State{\textbf{let} $v_1,\dots,v_n$ = the pointers contained in v}
+\State{todo $\leftarrow$ todo$\:\cup\:\{v_1,\dots,v_n\}$}
+\EndIf
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+The swap phase scans the heap looking for objects with mark bit 0, who are then added to the free list as garbage to be collected later. Objects with mark bit 1 have their mark bit reset to 0. The process is shown in Algorithm \ref{sweepphase}.
+\begin{algorithm}
+\caption{The sweep phase}\label{sweepphase}
+\begin{algorithmic}
+\State{p $\leftarrow$ bottom of heap}
+\While{p $<$ top of heap}
+\If{mark(p) = 1}
+\State{mark(p) = 0}
+\Else\State{add block [p$\dots$p + sizeof(p) - 1] to free list}
+\EndIf
+p $\leftarrow$ p + sizeof(p)
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+The conception of the mark and sweep algorithm is simple, but lie behind the algorithm are a number of tricky details typical of GC algorithms. 
+
+The mark phase is invoked when we are out of memory, yet space is needed to construct the \texttt{todo} list, whose size is unbounded and thus for which space cannot be reserved in advance. A trick to solve the problem is \textbf{pointer reversal}: when a pointer is followed during reachability analysis, it is reversed to point to its parent. Essentially it helps to maintain the stack for a depth-first search of the graph. Similarly, the free list is stored in the free objects themselves.
+
+The space for a new object is allocated from the free list. A block large enough is picked, an area of necessary size is allocated from it, and the leftover is put back in the free list. The algorithm can fragment the memory. It is necessary to merge the block when possible. Objects are not moved, thus there is no need to update pointers to objects, and it works for languages like C/C++, in which the literal value of a pointer is part of the language semantics.
+\subsection{Stop and copy}
+In \textbf{stop and copy}, memory is organized into two parts: the old space used for allocation and the new space used as a reserver for GC. The heap pointer points to the next available word in the old space, and an allocation does nothing but advancing the heap pointer.
+
+When the old space is full, the program is suspended, and all reachable objects are copied from the old space into the new space. Garbage (unreachable objects) is left behind and no longer occupies any space in the new space. After the copy, the roles of the old and new spaces are switched and the program is resumed. 
+
+Since objects are physically moved, we have to fix all pointers to an object after copying it. As a solution, we store in the old object a \textbf{forwarding pointer} to the new object after it gets copied. When a pointer takes us to an object with a forwarding pointer, we can be aware of the fact that it has been moved, and fix the pointer accordingly. 
+
+The traversal can be implemented without using extra space. We partition the new space into three contiguous regions with two pointers: the \texttt{scan} pointer and the \texttt{alloc} pointer. The \texttt{alloc} pointer points to the first empty word that has not been occupied by the copied objects. The \texttt{scan} pointer is between copied objects whose pointers have been followed and those whose pointers haven't. The algorithm is shown in Algorithm \ref{stopandcopy}.
+\begin{algorithm}
+\caption{Stop and copy}\label{stopandcopy}
+\begin{algorithmic}
+\While{scan $\neq$ alloc}
+\State{\textbf{let} O be the object at scan pointer}
+\ForAll{pointer p contained in O}
+\State{find O' that p points to}
+\If{O' is without a forwarding pointer}
+\State{copy O' to the new space (update alloc pointer)}
+\State{set a word of old O' to point to the new copy}
+\State{(set up the forwarding pointer)}
+\State{change p to point to the new copy of O'}
+\Else
+\State{set p in O equal to the forwarding pointer}
+\EndIf
+\EndFor
+\State{increment scan pointer to the next object}
+\EndWhile
+\end{algorithmic} 
+\end{algorithm} 
+As with mark and sweep, we have to have knowledge of how large an object is and where the pointers are stored inside it when we scan it. The latter can be unavailable for some languages, e.g. C++. In such case, we take a conservative approach: if a memory word looks like a pointer, which requires it being aligned and pointing to a valid address in the data segment, it is considered as a pointer. The set of reachable objects is overestimated. But still the objects cannot be copied and moved. And note that objects pointed to by the stack also need to be scanned and copied, which can turn out an expensive operation because the entire stack needs to be scanned.
+
+Stop and copy is generally considered to be the fastest GC algorithm, because allocation is very cheap, and collection is relatively cheap, especially when there are a lot of garbage. But some language like C/C++ does not allow object copying, and this method cannot apply to them.
+\subsection{Reference counting}
+Rather than wait for memory to be exhausted, \textbf{reference counting} tries to collect an object immediately when there are no pointers to it. The number of pointers to an object (the reference count) is saved in it, and every assignment operation manipulates the reference count. 
+
+\texttt{new} returns an object with reference count equal to 1. Let \texttt{rc(o)} be the reference count of object \texttt{o}. Each assignment $\mathtt{x\leftarrow y}$ becomes 
+\begin{align*}
+&\mathtt{rc(o_y)\leftarrow rc(o_y) + 1}\\
+&\mathtt{rc(o_x)\leftarrow rc(o_x) - 1}\\
+&\mathtt{if(rc(o_x) == 0)\:free\:x}\\
+&\mathtt{x\leftarrow y}\\
+\end{align*}
+
+Reference counting is easy to implement. There will not be long pauses in the execution for the sake of GC. But it cannot handle circular structures, and manipulating reference count at each assignment is quite slow. 
+
+Automatic memory management prevents storage bugs, but reduces programmer's control. The possible problematic pauses caused by GC are sometimes intolerable for real-time application. And memory leaks are still possible, or even likely even if GC techniques are used. A common type of error made by programmers, not a grammatical error but an error in terms of engineering, is to forget to set a pointer to \texttt{Null} when the pointer will clearly never be used again: the object won't be recognized as garbage until the pointer gets out of range, which is too late.
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
