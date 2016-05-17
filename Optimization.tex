@@ -194,11 +194,11 @@ When the heuristic fails to find a coloring, it is impossible to hold all tempor
 
 When we get stuck in the heuristic, we will find that all nodes left in the RIG have \texttt{k} or more neighbors. We need to choose a node as a candidate for spilling. The associated value might have to live in the memory. The chosen node \texttt{f} and its edges will be removed from the RIG, and we continue the coloring with the rest of the RIG. If the coloring ends up with success, we eventually have to assign a color to \texttt{f}. If its (\texttt{k} or more) neighbors use fewer than \texttt{k} colors, a color can easily be assigned, which is the case of \textbf{optimistic coloring}. If optimistic coloring fails, \texttt{f} has to be spilled. We need to:
 \begin{itemize}
-\item Allocate a memory location ,typically in the current frame, for \texttt{f}, noted as \texttt{fa}.
+\item Allocate a memory location, typically in the current frame, for \texttt{f}, noted as \texttt{fa}.
 \item Before each operation that reads \texttt{f}, insert \texttt{f $\coloneqq$ load fa}.
 \item After each operation that writes \texttt{f}, insert \texttt{store f, fa}.
 \end{itemize} 
-Note that different \texttt{load}s and \texttt{store}s of \texttt{f} do not have to use the same register, thus occurrences of \texttt{f} should be indexed (\texttt{f1, f2, }etc.). The liveness information needs to be recalculated. The new liveness information is almost the same as the old one, except that \texttt{f} has been split into several different temporaries. \texttt{fi} is live only between a \texttt{fi $\coloneqq$ load fa} and the next instruction (which reads it), and between a \texttt{store fi, fa} and the preceding instruction (which writes it). Obviously, spilling reduces the inferences of \texttt{f} with other temporaries, resulting in a RIG in which each \texttt{fi} has fewer neighbors than the original \texttt{f}.
+Note that different \texttt{load}s and \texttt{store}s of \texttt{f} do not have to use the same register, thus occurrences of \texttt{f} should be indexed (\texttt{f1, f2, }etc.). The liveness information needs to be recalculated. The new liveness information is almost the same as the old one, except that \texttt{f} has been split into several different temporaries. \texttt{fi} is live only between a \texttt{fi $\coloneqq$ load fa} and the next instruction (which reads it), and between a \texttt{store fi, fa} and the preceding instruction (which writes it). Obviously, spilling reduces the interferences of \texttt{f} with other temporaries, resulting in a RIG in which each \texttt{fi} has fewer neighbors than the original \texttt{f}.
 
 It is not uncommon that additional spilling is required before a coloring is found. The tricky part of spilling is the choice of the node to spill. There is no best choice, but it might well be helpful to spill the temporary with the most conflicts, which is the most promising choice for obtaining a colorable RIG, or the one with few definitions and uses so that the number of resulting memory operations can be minimized. Note that spilling temporaries in inner loops should be avoided for efficiency. 
 \section{Cache management}
@@ -248,7 +248,8 @@ Every object will have an extra bit reserved for memory management called \textb
 \EndWhile
 \end{algorithmic}
 \end{algorithm}
-The swap phase scans the heap looking for objects with mark bit 0, who are then added to the free list as garbage to be collected later. Objects with mark bit 1 have their mark bit reset to 0. The process is shown in Algorithm \ref{sweepphase}.
+
+The sweep phase scans the heap looking for objects with mark bit 0, who are then added to the free list as garbage to be collected later. Objects with mark bit 1 have their mark bit reset to 0. The process is shown in Algorithm \ref{sweepphase}.
 \begin{algorithm}
 \caption{The sweep phase}\label{sweepphase}
 \begin{algorithmic}
@@ -262,6 +263,7 @@ p $\leftarrow$ p + sizeof(p)
 \EndWhile
 \end{algorithmic}
 \end{algorithm}
+
 The conception of the mark and sweep algorithm is simple, but lie behind the algorithm are a number of tricky details typical of GC algorithms. 
 
 The mark phase is invoked when we are out of memory, yet space is needed to construct the \texttt{todo} list, whose size is unbounded and thus for which space cannot be reserved in advance. A trick to solve the problem is \textbf{pointer reversal}: when a pointer is followed during reachability analysis, it is reversed to point to its parent. Essentially it helps to maintain the stack for a depth-first search of the graph. Similarly, the free list is stored in the free objects themselves.
