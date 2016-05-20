@@ -3,20 +3,38 @@
 \begin{document}
 \fi
 \chapter{Java}
-In this chapter we will apply what we have learned so far to analyze some features of JAVA. We will also touch some features of JAVA that are not included in COOL and thus haven't been covered by the course.
+In this chapter we will apply what we have learned so far to analyze some features of Java. We will also touch some features of Java that are not included in COOL and thus haven't been covered by the course.
 
-JAVA developed from the OAK project of SUN targeted at set-top devices, which never took off in the consumer electronics market. Nonetheless, JAVA became popular with the development of the Internet for guaranteeing better security. It was developed on the basis of several other languages: it took the type system of Modula-3, the OO design of C++/Objective C, the idea of interface in Eiffel, and the dynamic flavor of Lisp, etc. 
-\section{JAVA arrays}
-Assume \texttt{B} is a subtype of \texttt{A}. If we take for granted that \texttt{B[]} is a subtype of \texttt{A[]}, we will have to face the following problem:
+Java developed from the OAK project of SUN targeted at set-top devices, which never took off in the consumer electronics market. Nonetheless, Java became popular with the development of the Internet for guaranteeing better security. It was developed on the basis of several other languages: it took the type system of Modula-3, the OO design of C++/Objective C, the idea of interface in Eiffel, and the dynamic flavor of Lisp, etc. 
+\section{Java arrays}
+Assume \texttt{B} is a subtype of \texttt{A}. If we take for granted that \texttt{B[]} is a subtype of \texttt{A[]} (i.e. array being \textbf{covariant}), we will have to face the following problem:
 \begin{lstlisting}
 B[] b = new B[10];
 A[] a = b;
 a[0] = new A();
 b[0].aMethodNotDeclaredInA(); //runtime error!
 \end{lstlisting}
-Having multiple aliases to updatable locations with different types is unsound.\footnote{I don't see how this involves arrays: aliases to a simple object can cause the same problem!} The standard solution is to disallow subtyping through arrays: \texttt{B[]} is subtype of \texttt{A[]} if and only if \texttt{B=A}. But JAVA solves the problem in a different way: 
-\section{JAVA exceptions}
+Note that the problem does not arise when \texttt{a,b} are not arrays, as shown below. Because here \texttt{a} and \texttt{b} are two different references of different types that cannot be retargeted at the same time, while in the case above, \texttt{a[0]} and \texttt{b[0]} are one reference represented by two aliases of different types. Retargeting one of the aliases (assignment to \texttt{a[0]}) will also retarget \texttt{b[0]}. 
+\begin{lstlisting}
+B b = new B();
+A a = b;
+a = new A();
+b.aMethodNotDeclaredInA(); //no runtime error!
+\end{lstlisting}
 
+Such a type system is unsound. The standard solution is to disallow subtyping through arrays: \texttt{B[]} is subtype of \texttt{A[]} if and only if \texttt{B = A}, i.e. making array \textbf{invariant}. Actually this solution is adopted by \texttt{ArrayList} of Java But Java solves the problem in a different way for arrays. Each assignment to an array element is checked at runtime for type correctness: is the type if the object being assigned compatible with the type of the array? The check is done against the type of the array itself rather than the declared type of the reference to the array that we are using. Consider the following example:
+\begin{lstlisting}
+public class A {};
+public class B extends A {};
+public class C extends A {};
+A[] as = new B[2];
+as[0] = new A(); //compiles, but results in runtime error!
+
+B[] bs = new B[2];
+A[] as_for_bs = bs;
+as_for_bs[0] = new C();//compiles, but results in runtime error!
+\end{lstlisting}
+\section{Java exceptions}
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
