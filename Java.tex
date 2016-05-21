@@ -22,7 +22,7 @@ a = new A();
 b.aMethodNotDeclaredInA(); //no runtime error!
 \end{lstlisting}
 
-Such a type system is unsound. The standard solution is to disallow subtyping through arrays: \texttt{B[]} is subtype of \texttt{A[]} if and only if \texttt{B = A}, i.e. making array \textbf{invariant}. Actually this solution is adopted by \texttt{ArrayList} of Java But Java solves the problem in a different way for arrays. Each assignment to an array element is checked at runtime for type correctness: is the type if the object being assigned compatible with the type of the array? The check is done against the type of the array itself rather than the declared type of the reference to the array that we are using. Consider the following example:
+Such a type system is unsound. The standard solution is to disallow subtyping through arrays: \texttt{B[]} is subtype of \texttt{A[]} if and only if \texttt{B = A}, i.e. making array \textbf{invariant}. Actually this solution is adopted by \texttt{ArrayList} of Java. But Java solves the problem in a different way for arrays. Each assignment to an array element is checked at runtime for type correctness: is the type if the object being assigned compatible with the type of the array? The check is done against the type of the array itself rather than the declared type of the reference to the array that we are using. Consider the following example:
 \begin{lstlisting}
 public class A {};
 public class B extends A {};
@@ -34,7 +34,33 @@ B[] bs = new B[2];
 A[] as_for_bs = bs;
 as_for_bs[0] = new C();//compiles, but results in runtime error!
 \end{lstlisting}
+This mechanism adds overhead on array computations. But array of primitive types are not affected: they are not classes, and thus involves no subtyping.
 \section{Java exceptions}
+\textbf{Exception} is a type(class) added into the language for error handling. Two kinds of forms are added for exceptions to take effect: \texttt{try-catch} and \texttt{throw}. We give their operational semantics to describe how they work. Here \texttt{v} is an ordinary value (an object), while \texttt{T(v)} is an exception that has been thrown with value \texttt{v}. 
+\begin{gather*}
+\mathtt{\frac{E\vdash e_1 : v_1}{E\vdash try\{e_1\}\:catch(x)\:\{e_2\} : v_1}}\\
+\\
+\mathtt{E\vdash e_1:T(v_1)}\\
+\mathtt{\frac{E[x\leftarrow v_1]\vdash e_2:v_2}{E\vdash try\{e_1\}\:catch(x)\:\{e_2\} : v_2}}\\
+\\
+\mathtt{\frac{E\vdash e:v}{E\vdash throw\:e:T(v)}}
+\end{gather*}
+For any other constructs, a thrown exception just propagates out. For example
+\begin{gather*}
+\mathtt{\frac{E\vdash e_1:T(v_1)}{E\vdash e_1+e_2:T(v_1)}}
+\end{gather*} 
+There are multiple ways to implement the exception mechanism. A simple implementation can be described as follow:
+\begin{itemize}
+\item When a \texttt{try} is encountered, the current location in the stack is marked.
+\item When a exception is \texttt{thrown}, the stack is unwound to the first \texttt{try}, and the corresponding \texttt{catch} expression is executed.
+\end{itemize}
+More complex techniques can be used to reduce the cost of \texttt{try} and \texttt{throw}.
+\section{Java interfaces}
+Interfaces specify relationships between classes without inheritance. Java programs can use interfaces to make it unnecessary for related classes to share a common abstract superclass or to add methods to \texttt{Object}. Interfaces play the same role as multiple inheritance in C++, because classes can implement multiple interfaces, while Java allows only single inheritance. A difference between interface and single inheritance is that methods in classes implementing interfaces need not, and cannot be at fixed offsets. This makes dispatch more complex than usual. One approach is to have a lookup table from method names to methods associated with each class implementing an interface. For faster lookup, the method names can be hashed. It is not an efficient approach, but it works. 
+\section{Java coercions}
+Java allows primitive types to be coerced in certain contexts. For example, in 1 + 2.0, the \texttt{int} 1 is widen to a \texttt{float} 1.0. A coercion is just a primitive function that the compiler inserts for us. In this example, something like \texttt{int2float(int)}. Java distinguishes between two types of coercions/casts: widening like \texttt{int $\rightarrow$ float} always succeeds, while narrowing like \texttt{float $\rightarrow$ int} might fail. Narrowing casts must be explicit, while widening coercions/casts can be implicit. The only type in Java that does not have coercions/casts defined is \texttt{Bool}.
+\section{Java threads}
+Java \texttt{Thread} and \texttt{synchronized}. 
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
