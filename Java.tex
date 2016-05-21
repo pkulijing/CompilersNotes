@@ -60,7 +60,11 @@ Interfaces specify relationships between classes without inheritance. Java progr
 \section{Java coercions}
 Java allows primitive types to be coerced in certain contexts. For example, in 1 + 2.0, the \texttt{int} 1 is widen to a \texttt{float} 1.0. A coercion is just a primitive function that the compiler inserts for us. In this example, something like \texttt{int2float(int)}. Java distinguishes between two types of coercions/casts: widening like \texttt{int $\rightarrow$ float} always succeeds, while narrowing like \texttt{float $\rightarrow$ int} might fail. Narrowing casts must be explicit, while widening coercions/casts can be implicit. The only type in Java that does not have coercions/casts defined is \texttt{Bool}.
 \section{Java threads}
-Java \texttt{Thread} and \texttt{synchronized}. 
+Java has currency built in through \textbf{threads}. Each thread has its own program counter and stack. Thread objects are of class \texttt{Thread}, which has \texttt{start} and \texttt{stop} methods.
+
+Synchronization obtains a lock on an object. \texttt{synchronized(x)}\{ \texttt{e} \} executes \texttt{e} with an lock on \texttt{x}, and unlocks \texttt{x} afterwards. If a method is defined as synchronized, it means that \texttt{this} is locked during its execution. It is guaranteed that two threads won't try to lock the same object. This is the only way in Java to implement synchronization. 
+
+Even without synchronization, a variable should only hold values written by some thread, i.e. writes of values should be atomic. Java does guarantees that, except for \texttt{double}s that occupy 2 bytes. \texttt{double} has to be declared as \texttt{volatile} in order to guarantee the atomicity of writes to it. 
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
