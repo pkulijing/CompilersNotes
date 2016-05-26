@@ -10,4 +10,11 @@
 *.ist
 *.toc
 *.xdy
-*.pdf
+Introduction.pdf
+LexicalAnalysis.pdf
+Parsing.pdf
+SemanticAnalysis.pdf
+RuntimeOrganization.pdf
+CodeGeneration.pdf
+Optimization.pdf
+Java.pdf
